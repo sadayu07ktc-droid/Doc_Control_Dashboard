@@ -7,251 +7,314 @@
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   
   <style>
     :root { 
-      --primary: #6200EA; --secondary: #FF007F; 
+      --primary: #6200EA; 
+      --secondary: #FF007F; 
       --bg-gradient: linear-gradient(135deg, #6200EA 0%, #FF007F 100%); 
-      --success: #00E676; --warning: #FFD600; --danger: #FF5252; --info: #29B6F6;
+      --card-bg: rgba(255, 255, 255, 0.95); 
+      --text-main: #1A1A1A; 
+      --success: #00E676;
+      --warning: #FFD600;
+      --danger: #FF5252;
     }
-    body { font-family: 'Prompt', sans-serif; background: var(--bg-gradient); color: #1A1A1A; padding: 15px; margin: 0; min-height: 100vh; }
-    
-    /* Profile & Search */
-    .profile-info { background: rgba(255,255,255,0.95); border-radius: 20px; padding: 15px; display: flex; align-items: center; gap: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin-bottom: 15px; }
-    .profile-info img { width: 60px; height: 60px; border-radius: 50%; border: 3px solid var(--secondary); }
+
+    body { 
+      font-family: 'Prompt', sans-serif; 
+      background: var(--bg-gradient); 
+      color: var(--text-main); 
+      padding: 15px; 
+      margin: 0; 
+      min-height: 100vh;
+    }
+
+    .header-section {
+      text-align: center;
+      color: white;
+      margin-bottom: 20px;
+      margin-top: 10px;
+      animation: fadeInDown 0.6s ease-out;
+    }
+
+    .profile-info {
+      background: var(--card-bg);
+      border-radius: 20px;
+      padding: 15px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .profile-info img {
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      border: 3px solid var(--secondary);
+    }
+
+    .profile-text { text-align: left; }
     .profile-text h3 { margin: 0; font-size: 16px; color: var(--primary); }
     .profile-text p { margin: 0; font-size: 13px; color: #666; }
-    
-    .search-box { position: relative; margin-bottom: 15px; }
-    .search-box input { width: 100%; padding: 12px 15px 12px 40px; border-radius: 15px; border: none; font-family: 'Prompt'; box-sizing: border-box; box-shadow: 0 4px 10px rgba(0,0,0,0.1); outline: none; }
-    .search-box i { position: absolute; left: 15px; top: 14px; color: #888; }
 
-    /* 5 Clickable Summary Cards */
-    .summary-grid { display: flex; overflow-x: auto; gap: 10px; margin-bottom: 20px; padding-bottom: 5px; scrollbar-width: none; }
-    .summary-grid::-webkit-scrollbar { display: none; }
-    .summary-item { min-width: 100px; background: white; padding: 12px 10px; border-radius: 15px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); cursor: pointer; transition: 0.2s; border: 2px solid transparent; }
-    .summary-item.active { border-color: var(--primary); transform: translateY(-3px); box-shadow: 0 6px 15px rgba(98,0,234,0.3); }
-    .summary-item span { display: block; font-size: 18px; font-weight: 700; margin: 5px 0; }
-    .summary-item label { font-size: 11px; color: #666; font-weight: 500; }
+    /* Summary Bar */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .summary-item {
+      background: white;
+      padding: 10px;
+      border-radius: 15px;
+      text-align: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+
+    .summary-item i { font-size: 20px; margin-bottom: 5px; }
+    .summary-item span { display: block; font-size: 18px; font-weight: 700; }
+    .summary-item label { font-size: 10px; color: #888; }
 
     /* Document Cards */
     .doc-list { display: flex; flex-direction: column; gap: 15px; padding-bottom: 30px; }
-    .doc-card { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 8px 15px rgba(0,0,0,0.08); position: relative; }
-    .doc-title { font-weight: 600; font-size: 16px; color: var(--primary); line-height: 1.3; }
-    .badge-status { position: absolute; top: 15px; right: 15px; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; color: white; }
-    .badge-process { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 600; margin-top: 10px; background: #EEE; color: #555; }
-    
-    .btn-group { display: flex; gap: 10px; margin-top: 15px; }
-    .btn-action { flex: 1; padding: 10px; border-radius: 12px; border: none; font-family: 'Prompt'; font-size: 13px; font-weight: 500; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 5px; }
+
+    .doc-card {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 15px rgba(0,0,0,0.08);
+      border-left: 8px solid #DDD;
+      transition: transform 0.2s;
+    }
+
+    .doc-card.status-ปกติ { border-left-color: var(--success); }
+    .doc-card.status-ใกล้หมดอายุ { border-left-color: var(--warning); }
+    .doc-card.status-หมดอายุแล้ว { border-left-color: var(--danger); }
+
+    .doc-title {
+      font-weight: 600;
+      font-size: 17px;
+      color: var(--primary);
+      margin-bottom: 10px;
+      padding-right: 60px;
+      line-height: 1.3;
+    }
+
+    .doc-details {
+      font-size: 13px;
+      color: #555;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .days-badge {
+      background: #F0F0F0;
+      padding: 5px 12px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 14px;
+      display: inline-block;
+      margin-top: 10px;
+    }
+
+    .status-badge {
+      position: absolute;
+      top: 0; right: 0;
+      padding: 5px 15px;
+      font-size: 10px;
+      color: white;
+      border-bottom-left-radius: 15px;
+      font-weight: 600;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .btn-action {
+      flex: 1;
+      padding: 10px;
+      border-radius: 12px;
+      border: none;
+      font-family: 'Prompt';
+      font-weight: 500;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: 0.3s;
+    }
+
     .btn-view { background: #E3F2FD; color: #1976D2; }
+    .btn-view:hover { background: #1976D2; color: white; }
+    .btn-no-file { background: #FFF3E0; color: #EF6C00; cursor: not-allowed; opacity: 0.7; }
     .btn-update { background: #F3E5F5; color: var(--primary); }
 
-    /* Modal Popup */
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
-    .modal-content { background: white; padding: 25px; border-radius: 20px; width: 100%; max-width: 400px; text-align: center; }
-    .modal select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #CCC; font-family: 'Prompt'; margin: 15px 0; font-size: 15px; }
-    .modal-btns { display: flex; gap: 10px; }
-    .btn-save { background: var(--primary); color: white; flex: 2; }
-    .btn-cancel { background: #DDD; color: #333; flex: 1; }
+    /* Loading Overlay */
+    #loading {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: var(--bg-gradient);
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      z-index: 1000; color: white;
+    }
 
-    #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-gradient); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2000; color: white; }
-    .loader { border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid white; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+    .loader {
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      width: 40px; height: 40px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 15px;
+    }
+
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+
+    .empty-state {
+      text-align: center; background: white; padding: 40px; border-radius: 20px; margin-top: 20px;
+    }
   </style>
 </head>
 <body>
 
-  <div id="loading"><div class="loader"></div><p>กำลังโหลดแดชบอร์ด...</p></div>
-
-  <div class="profile-info" id="userProfile" style="display:none;">
-    <img id="userImg" src="" alt="Profile">
-    <div class="profile-text">
-      <h3 id="userName">กำลังโหลด...</h3>
-      <p id="userDept">แผนก: ...</p>
-    </div>
+  <div id="loading">
+    <div class="loader" id="spinner"></div>
+    <p id="loadingText">กำลังโหลดแดชบอร์ดส่วนตัว...</p>
   </div>
 
-  <div class="search-box">
-    <i class="fa-solid fa-magnifying-glass"></i>
-    <input type="text" id="searchInput" placeholder="ค้นหาชื่อเอกสาร หรือ หน่วยงาน..." onkeyup="filterData()">
+  <div class="header-section">
+    <h2 style="margin:0;">🗂️ แดชบอร์ดเอกสาร</h2>
+    <p style="font-size:12px; opacity:0.8;">ตรวจสอบและจัดการสถานะเอกสารของคุณ</p>
+  </div>
+
+  <div class="profile-info" id="userProfile" style="display:none;">
+    <img id="userImg" src="https://via.placeholder.com/60" alt="Profile">
+    <div class="profile-text">
+      <h3 id="userName">กำลังดึงข้อมูล...</h3>
+      <p id="userDept">ผู้ทำรายการ</p>
+    </div>
   </div>
 
   <div class="summary-grid" id="summaryArea" style="display:none;">
-    <div class="summary-item active" onclick="setFilter('all', this)">
-      <label>ทั้งหมด</label><span id="c-all" style="color:var(--primary)">0</span>
+    <div class="summary-item">
+      <i class="fa-solid fa-file-lines" style="color:var(--primary)"></i>
+      <span id="totalDoc">0</span>
+      <label>ทั้งหมด</label>
     </div>
-    <div class="summary-item" onclick="setFilter('ใกล้หมดอายุ', this)">
-      <label>ใกล้หมดอายุ</label><span id="c-warn" style="color:var(--warning)">0</span>
+    <div class="summary-item">
+      <i class="fa-solid fa-clock-rotate-left" style="color:var(--warning)"></i>
+      <span id="warnDoc" style="color:var(--warning)">0</span>
+      <label>ใกล้หมดอายุ</label>
     </div>
-    <div class="summary-item" onclick="setFilter('หมดอายุแล้ว', this)">
-      <label>หมดอายุแล้ว</label><span id="c-danger" style="color:var(--danger)">0</span>
-    </div>
-    <div class="summary-item" onclick="setFilter('ยังไม่ดำเนินการ', this)">
-      <label>ยังไม่ดำเนินการ</label><span id="c-todo" style="color:#FF9800">0</span>
-    </div>
-    <div class="summary-item" onclick="setFilter('ยื่นเอกสารแล้ว', this)">
-      <label>ยื่นเรื่องแล้ว</label><span id="c-done" style="color:var(--success)">0</span>
+    <div class="summary-item">
+      <i class="fa-solid fa-circle-exclamation" style="color:var(--danger)"></i>
+      <span id="dangerDoc" style="color:var(--danger)">0</span>
+      <label>หมดอายุแล้ว</label>
     </div>
   </div>
 
   <div class="doc-list" id="docContainer"></div>
 
-  <div class="modal" id="updateModal">
-    <div class="modal-content">
-      <h3 style="margin-top:0; color:var(--primary);">📝 อัปเดตสถานะเอกสาร</h3>
-      <p id="modalDocName" style="font-size:14px; color:#555;"></p>
-      
-      <select id="processSelect">
-        <option value="ยังไม่ดำเนินการ">🔴 ยังไม่ดำเนินการ</option>
-        <option value="กำลังเตรียมเอกสาร">🟡 กำลังเตรียมเอกสาร</option>
-        <option value="ยื่นเอกสารแล้ว">🟢 ยื่นเอกสารแล้ว (หยุดการแจ้งเตือน)</option>
-        <option value="เสร็จสิ้น">✅ เสร็จสิ้น (หยุดการแจ้งเตือน)</option>
-      </select>
-
-      <div class="modal-btns">
-        <button class="btn-action btn-cancel" onclick="closeModal()">ยกเลิก</button>
-        <button class="btn-action btn-save" onclick="saveProcess()">บันทึกข้อมูล</button>
-      </div>
-    </div>
-  </div>
-
   <script>
-    // 🌟 อย่าลืมใส่ 2 ค่านี้ใหม่นะคะ
-    const MY_LIFF_ID = "ใส่_LIFF_ID_ของแดชบอร์ดตรงนี้"; 
-    const GAS_API_URL = "ใส่_WEB_APP_URL_จาก_GAS_ตัวใหม่_ตรงนี้"; 
+    // 📌 1. ใส่ LIFF ID (สร้างใหม่สำหรับหน้า Dashboard)
+    const MY_LIFF_ID = "2010379470-vQxXyuA8"; 
     
-    let allDocs = []; 
-    let currentFilter = 'all';
-    let currentRowIdx = 0;
+    // 📌 2. ใส่ Web App URL (ตัวเดียวกันกับหน้าฟอร์มกรอกข้อมูล)
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxkHcKCsM853RD225LZ7wUnxnBZF1D5HoEXnJm7FaLBY8h12oppFDkYmERoQwoTs9cf6w/exec"; 
 
-    window.onload = () => {
+    window.onload = function() {
       liff.init({ liffId: MY_LIFF_ID }).then(() => {
         if (liff.isLoggedIn()) {
           liff.getProfile().then(profile => {
             document.getElementById('userImg').src = profile.pictureUrl;
-            document.getElementById('userName').innerText = profile.displayName; 
+            document.getElementById('userName').innerText = profile.displayName;
             fetchDashboard(profile.userId);
-          });
-        } else { liff.login(); }
+          }).catch(err => showError("ไม่สามารถดึงรูปโปรไฟล์ได้"));
+        } else { 
+          liff.login(); 
+        }
+      }).catch(err => {
+        showError("❌ การตั้งค่า LIFF ID ไม่ถูกต้อง");
       });
     };
 
+    // ฟังก์ชันดึงข้อมูลจาก Google Apps Script
     function fetchDashboard(userId) {
       fetch(`${GAS_API_URL}?action=getDashboard&userId=${userId}`)
         .then(res => res.json())
         .then(data => {
-          allDocs = data.docs;
-          document.getElementById('userDept').innerText = "แผนก: " + data.empDept; 
-          updateCounters();
-          renderDocs(allDocs);
-          
+          renderDashboard(data);
           document.getElementById('loading').style.display = 'none';
           document.getElementById('userProfile').style.display = 'flex';
-          document.getElementById('summaryArea').style.display = 'flex';
+          document.getElementById('summaryArea').style.display = 'grid';
+        })
+        .catch(error => {
+          showError("❌ ระบบหลังบ้านขัดข้อง ไม่สามารถดึงข้อมูลได้ กรุณาลองใหม่");
+          console.error(error);
         });
     }
 
-    function updateCounters() {
-      document.getElementById('c-all').innerText = allDocs.length;
-      document.getElementById('c-warn').innerText = allDocs.filter(d => d.status === 'ใกล้หมดอายุ').length;
-      document.getElementById('c-danger').innerText = allDocs.filter(d => d.status === 'หมดอายุแล้ว').length;
-      document.getElementById('c-todo').innerText = allDocs.filter(d => d.process === 'ยังไม่ดำเนินการ' || !d.process).length;
-      document.getElementById('c-done').innerText = allDocs.filter(d => d.process === 'ยื่นเอกสารแล้ว' || d.process === 'เสร็จสิ้น').length;
+    // ฟังก์ชันแสดงข้อความ Error เวลาระบบค้าง
+    function showError(msg) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('loadingText').innerHTML = `<span style="color:#FFD600; font-weight:bold;">${msg}</span><br><br><small>กรุณาตรวจสอบ URL หรือ รีเฟรชหน้าใหม่อีกครั้ง</small>`;
     }
 
-    function setFilter(type, element) {
-      document.querySelectorAll('.summary-item').forEach(el => el.classList.remove('active'));
-      element.classList.add('active');
-      currentFilter = type;
-      filterData();
-    }
-
-    function filterData() {
-      const searchText = document.getElementById('searchInput').value.toLowerCase();
-      
-      let filtered = allDocs.filter(doc => {
-        const matchText = doc.docName.toLowerCase().includes(searchText) || (doc.agency && doc.agency.toLowerCase().includes(searchText));
-        
-        let matchBtn = true;
-        if (currentFilter === 'ใกล้หมดอายุ') matchBtn = (doc.status === 'ใกล้หมดอายุ');
-        else if (currentFilter === 'หมดอายุแล้ว') matchBtn = (doc.status === 'หมดอายุแล้ว');
-        else if (currentFilter === 'ยังไม่ดำเนินการ') matchBtn = (doc.process === 'ยังไม่ดำเนินการ' || !doc.process);
-        else if (currentFilter === 'ยื่นเอกสารแล้ว') matchBtn = (doc.process === 'ยื่นเอกสารแล้ว' || doc.process === 'เสร็จสิ้น');
-        
-        return matchText && matchBtn;
-      });
-
-      renderDocs(filtered);
-    }
-
-    function renderDocs(docs) {
+    // ฟังก์ชันวาดการ์ดเอกสาร
+    function renderDashboard(docs) {
       const container = document.getElementById('docContainer');
-      if (docs.length === 0) {
-        container.innerHTML = `<div style="text-align:center; padding:30px; background:white; border-radius:20px;">ไม่พบเอกสารที่ค้นหาครับ</div>`;
+      let total = docs.length, warn = 0, danger = 0;
+
+      if (total === 0) {
+        container.innerHTML = `<div class="empty-state">
+          <i class="fa-regular fa-folder-open" style="font-size:50px; color:#DDD; margin-bottom:15px; display:block;"></i>
+          <p>ยังไม่มีข้อมูลเอกสารในระบบครับ</p>
+        </div>`;
         return;
       }
 
       container.innerHTML = docs.map(doc => {
+        if (doc.status === 'ใกล้หมดอายุ') warn++;
+        if (doc.status === 'หมดอายุแล้ว') danger++;
+
+        let dayColor = doc.daysLeft < 0 ? 'var(--danger)' : (doc.daysLeft <= 60 ? 'var(--warning)' : 'var(--success)');
         let badgeColor = doc.status === 'ปกติ' ? 'var(--success)' : (doc.status === 'ใกล้หมดอายุ' ? 'var(--warning)' : 'var(--danger)');
-        let processColor = (doc.process === 'ยื่นเอกสารแล้ว' || doc.process === 'เสร็จสิ้น') ? 'var(--success)' : '#FF9800';
 
         return `
-          <div class="doc-card" style="border-left: 6px solid ${badgeColor}">
-            <div class="badge-status" style="background:${badgeColor}">${doc.status}</div>
-            <div class="doc-title">${doc.docName} <br><small style="color:#888; font-weight:normal;">${doc.agency || '-'}</small></div>
-            
-            <div class="badge-process" style="color: ${processColor}; border: 1px solid ${processColor}; background: white;">
-              <i class="fa-solid fa-spinner"></i> สถานะ: ${doc.process || 'ยังไม่ดำเนินการ'}
+          <div class="doc-card status-${doc.status}">
+            <div class="status-badge" style="background:${badgeColor}">${doc.status}</div>
+            <div class="doc-title">${doc.docName} <br><small style="color:#888; font-weight:normal; font-size:13px;">${doc.agency || 'ไม่ระบุหน่วยงาน'}</small></div>
+            <div class="doc-details">
+              <div><i class="fa-regular fa-calendar-check"></i> ออกให้: <br>${doc.startDate}</div>
+              <div><i class="fa-regular fa-calendar-xmark"></i> หมดอายุ: <br>${doc.endDate}</div>
             </div>
-
-            <div style="font-size:13px; color:#555; margin-top:15px; display:flex; justify-content:space-between;">
-              <span>⏳ เหลือเวลา: <b>${doc.daysLeft} วัน</b></span>
-              <span>หมดอายุ: ${doc.endDate}</span>
+            <div class="days-badge" style="color:${dayColor}">
+              ${doc.daysLeft < 0 ? '🚨 เลยกำหนด ' + Math.abs(doc.daysLeft) : '⌛ เหลือเวลา ' + doc.daysLeft} วัน
             </div>
-
             <div class="btn-group">
               ${doc.fileUrl ? 
-                `<button class="btn-action btn-view" onclick="window.open('${doc.fileUrl}')"><i class="fa-solid fa-file"></i> ดูไฟล์</button>` : 
-                `<button class="btn-action" style="background:#EEE; color:#AAA;" disabled>ไม่มีไฟล์</button>`}
-              <button class="btn-action btn-update" onclick="openModal(${doc.rowIdx}, '${doc.docName}', '${doc.process}')">
-                <i class="fa-solid fa-pen"></i> อัปเดตสถานะ
-              </button>
+                `<button class="btn-action btn-view" onclick="window.open('${doc.fileUrl}')"><i class="fa-solid fa-paperclip"></i> ดูไฟล์แนบ</button>` : 
+                `<button class="btn-action btn-no-file" disabled><i class="fa-solid fa-slash"></i> ไม่มีไฟล์แนบ</button>`
+              }
+              <button class="btn-action btn-update" onclick="alert('ฟีเจอร์อัปเดตสถานะ กำลังตามมาเร็วๆ นี้ครับ!')"><i class="fa-solid fa-pen-to-square"></i> อัปเดต</button>
             </div>
           </div>
         `;
       }).join('');
-    }
 
-    function openModal(rowIdx, docName, currentProcess) {
-      currentRowIdx = rowIdx;
-      document.getElementById('modalDocName').innerText = docName;
-      document.getElementById('processSelect').value = currentProcess || 'ยังไม่ดำเนินการ';
-      document.getElementById('updateModal').style.display = 'flex';
-    }
-
-    function closeModal() {
-      document.getElementById('updateModal').style.display = 'none';
-    }
-
-    function saveProcess() {
-      const newProcess = document.getElementById('processSelect').value;
-      Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-      fetch(GAS_API_URL, {
-        method: 'POST',
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: 'updateProcess', rowIdx: currentRowIdx, newProcess: newProcess })
-      })
-      .then(res => res.json())
-      .then(res => {
-        if(res.status === 'success') {
-          Swal.fire({ icon: 'success', title: 'อัปเดตสำเร็จ', confirmButtonColor: '#6200EA' }).then(() => {
-            closeModal();
-            liff.getProfile().then(p => fetchDashboard(p.userId)); 
-          });
-        }
-      });
+      document.getElementById('totalDoc').innerText = total;
+      document.getElementById('warnDoc').innerText = warn;
+      document.getElementById('dangerDoc').innerText = danger;
     }
   </script>
 </body>
