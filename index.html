@@ -286,7 +286,8 @@
               <div><i class="fa-regular fa-calendar-xmark"></i> หมดอายุ: <br>${doc.endDate}</div>
             </div>
             <div class="days-badge" style="color:${dayColor}">
-              ${doc.daysLeft < 0 ? '🚨 เลยกำหนด ' + Math.abs(doc.daysLeft) : '⌛ เหลือเวลา ' + doc.daysLeft} วัน
+              // ใช้ Math.floor เพื่อปัดเศษลง หรือ Math.round เพื่อปัดขึ้น
+              ${doc.daysLeft < 0 ? '🚨 เลยกำหนด ' + Math.floor(Math.abs(doc.daysLeft)) : '⌛ เหลือเวลา ' + Math.floor(doc.daysLeft)} วัน
             </div>
             
             <div class="btn-group">
