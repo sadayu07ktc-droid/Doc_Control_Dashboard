@@ -11,88 +11,48 @@
   
   <style>
     :root { 
-      --primary: #6200EA; 
-      --secondary: #FF007F; 
+      --primary: #6200EA; --secondary: #FF007F; 
       --bg-gradient: linear-gradient(135deg, #6200EA 0%, #FF007F 100%); 
       --card-bg: rgba(255, 255, 255, 0.95); 
       --text-main: #1A1A1A; 
-      --success: #00E676;
-      --warning: #FFD600;
-      --danger: #FF5252;
+      --success: #00E676; --warning: #FFD600; --danger: #FF5252;
     }
 
-    body { 
-      font-family: 'Prompt', sans-serif; 
-      background: var(--bg-gradient); 
-      color: var(--text-main); 
-      padding: 15px; 
-      margin: 0; 
-      min-height: 100vh;
-    }
+    body { font-family: 'Prompt', sans-serif; background: var(--bg-gradient); color: var(--text-main); padding: 15px; margin: 0; min-height: 100vh; }
 
-    .header-section {
-      text-align: center;
-      color: white;
-      margin-bottom: 20px;
-      margin-top: 10px;
-      animation: fadeInDown 0.6s ease-out;
-    }
+    .header-section { text-align: center; color: white; margin-bottom: 20px; margin-top: 10px; animation: fadeInDown 0.6s ease-out; }
 
-    /* 🌟 โปรไฟล์อัปเกรด */
-    .profile-info {
-      background: var(--card-bg);
-      border-radius: 20px;
-      padding: 15px;
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
+    .profile-info { background: var(--card-bg); border-radius: 20px; padding: 15px; display: flex; align-items: center; gap: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); margin-bottom: 20px; }
     .profile-info img { width: 60px; height: 60px; border-radius: 50%; border: 3px solid var(--secondary); }
     .profile-text { text-align: left; }
     .profile-text h3 { margin: 0; font-size: 15px; color: var(--primary); }
     .profile-text p { margin: 2px 0 0 0; font-size: 12px; color: #555; }
 
-    /* 🌟 ช่องค้นหาใหม่ */
     .search-box { position: relative; margin-bottom: 15px; }
     .search-box input { width: 100%; padding: 12px 15px 12px 40px; border-radius: 15px; border: none; font-family: 'Prompt'; box-sizing: border-box; outline: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1);}
     .search-box i { position: absolute; left: 15px; top: 14px; color: #888; }
 
-    /* 🌟 Summary Bar เปลี่ยนเป็นปุ่มกดกรองได้ */
+    /* 🌟 ปรับปรุง: แถบสรุปสถานะให้สมมาตรและยืดหยุ่นตามหน้าจอ */
     .summary-grid {
       display: flex;
-      overflow-x: auto;
+      flex-wrap: wrap;
+      justify-content: space-between;
       gap: 10px;
       margin-bottom: 20px;
-      padding-bottom: 5px;
-      scrollbar-width: none;
     }
-    .summary-grid::-webkit-scrollbar { display: none; }
-    
     .summary-item {
-      min-width: 100px;
-      background: white;
-      padding: 10px;
-      border-radius: 15px;
-      text-align: center;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-      cursor: pointer;
-      border: 2px solid transparent;
-      transition: 0.2s;
+      flex: 1 1 0; /* แบ่งพื้นที่เท่าๆ กัน */
+      min-width: 65px; /* กันไม่ให้บีบจนเกินไปในจอมือถือเล็ก */
+      background: white; padding: 10px 5px; border-radius: 15px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); cursor: pointer; border: 2px solid transparent; transition: 0.2s;
     }
     .summary-item.active { border-color: var(--primary); transform: translateY(-3px); box-shadow: 0 6px 15px rgba(98,0,234,0.3); }
-    .summary-item i { font-size: 20px; margin-bottom: 5px; }
-    .summary-item span { display: block; font-size: 18px; font-weight: 700; }
+    .summary-item i { font-size: 18px; margin-bottom: 5px; }
+    .summary-item span { display: block; font-size: 16px; font-weight: 700; }
     .summary-item label { font-size: 10px; color: #888; font-weight: 500;}
 
-    /* Document Cards */
     .doc-list { display: flex; flex-direction: column; gap: 15px; padding-bottom: 30px; }
 
-    .doc-card {
-      background: white; border-radius: 20px; padding: 20px; position: relative;
-      box-shadow: 0 8px 15px rgba(0,0,0,0.08); border-left: 8px solid #DDD;
-    }
+    .doc-card { background: white; border-radius: 20px; padding: 20px; position: relative; box-shadow: 0 8px 15px rgba(0,0,0,0.08); border-left: 8px solid #DDD; }
     .doc-card.status-ปกติ { border-left-color: var(--success); }
     .doc-card.status-ใกล้หมดอายุ { border-left-color: var(--warning); }
     .doc-card.status-หมดอายุแล้ว { border-left-color: var(--danger); }
@@ -103,16 +63,15 @@
     .days-badge { background: #F0F0F0; padding: 5px 12px; border-radius: 12px; font-weight: 700; font-size: 13px; display: inline-block; margin-top: 10px; }
     .status-badge { position: absolute; top: 0; right: 0; padding: 5px 12px; font-size: 10px; color: white; border-bottom-left-radius: 15px; font-weight: 600; }
     
-    /* 🌟 ป้ายบอกความคืบหน้าแบบใหม่ */
     .process-badge { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 600; margin-bottom: 10px; border: 1px solid #CCC; }
 
     .btn-group { display: flex; gap: 10px; margin-top: 15px; }
     .btn-action { flex: 1; padding: 10px; border-radius: 12px; border: none; font-family: 'Prompt'; font-weight: 500; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: 0.3s; }
     .btn-view { background: #E3F2FD; color: #1976D2; }
-    .btn-no-file { background: #FFF3E0; color: #EF6C00; cursor: not-allowed; opacity: 0.7; }
+    .btn-no-file { background: #F5F5F5; color: #999; cursor: not-allowed; } /* ไอคอนสีซอฟต์ลง */
     .btn-update { background: #F3E5F5; color: var(--primary); }
 
-    /* 🌟 Modal สำหรับอัปเดต */
+    /* Modal */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
     .modal-content { background: white; padding: 20px; border-radius: 20px; width: 100%; max-width: 400px; }
     .modal-content h3 { margin-top: 0; color: var(--primary); text-align: center; }
@@ -120,7 +79,10 @@
     .modal-content input, .modal-content select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #CCC; font-family: 'Prompt'; box-sizing: border-box; font-size:14px; outline:none;}
     .modal-btns { display: flex; gap: 10px; margin-top: 20px;}
 
-    /* Loading Overlay */
+    /* อัปโหลดไฟล์ใน Modal */
+    .file-upload-box { border: 1px dashed var(--primary); padding: 10px; border-radius: 8px; text-align: center; background: #F3E5F5; margin-bottom:10px; cursor: pointer;}
+    .file-upload-box input[type="file"] { display: none; }
+
     #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-gradient); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; color: white; }
     .loader { border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid white; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -130,10 +92,7 @@
 </head>
 <body>
 
-  <div id="loading">
-    <div class="loader" id="spinner"></div>
-    <p id="loadingText">กำลังโหลดแดชบอร์ดส่วนตัว...</p>
-  </div>
+  <div id="loading"><div class="loader" id="spinner"></div><p id="loadingText">กำลังโหลดแดชบอร์ดส่วนตัว...</p></div>
 
   <div class="header-section">
     <h2 style="margin:0;">🗂️ แดชบอร์ดเอกสาร</h2>
@@ -170,15 +129,15 @@
       <span id="c-danger" style="color:var(--danger)">0</span>
       <label>หมดอายุแล้ว</label>
     </div>
-    <div class="summary-item" onclick="setFilter('กำลังดำเนินการ', this)">
+    <div class="summary-item" onclick="setFilter('รอดำเนินการ', this)">
       <i class="fa-solid fa-spinner" style="color:#FF9800"></i>
       <span id="c-todo" style="color:#FF9800">0</span>
-      <label>รอดำเนินการ</label>
+      <label>รอจัดการ</label>
     </div>
     <div class="summary-item" onclick="setFilter('ดำเนินการแล้ว', this)">
       <i class="fa-solid fa-check-circle" style="color:var(--success)"></i>
       <span id="c-done" style="color:var(--success)">0</span>
-      <label>ดำเนินการแล้ว</label>
+      <label>ยื่นแล้ว</label>
     </div>
   </div>
 
@@ -197,11 +156,17 @@
 
       <label><i class="fa-solid fa-spinner"></i> สถานะความคืบหน้า</label>
       <select id="processSelect">
-        <option value="ยังไม่ดำเนินการ">🔴 ยังไม่ดำเนินการ</option>
-        <option value="กำลังดำเนินการ">🟡 กำลังดำเนินการ</option>
+        <option value="รอดำเนินการ">🟡 รอดำเนินการ</option>
         <option value="ดำเนินการแล้ว">🟢 ดำเนินการแล้ว (หยุดแจ้งเตือน)</option>
         <option value="เสร็จสิ้น">✅ เสร็จสิ้น (หยุดแจ้งเตือน)</option>
       </select>
+
+      <label><i class="fa-solid fa-cloud-arrow-up"></i> อัปโหลดไฟล์แนบใหม่ (ถ้ามี)</label>
+      <div class="file-upload-box" onclick="document.getElementById('newFileInput').click()">
+        <i class="fa-solid fa-file-arrow-up" style="font-size:24px; color:var(--primary); margin-bottom:5px;"></i><br>
+        <span id="fileNameDisplay" style="font-size:12px; color:var(--primary);">คลิกเพื่อเลือกไฟล์ (PDF/รูปภาพ)</span>
+      </div>
+      <input type="file" id="newFileInput" accept=".pdf,image/*" onchange="document.getElementById('fileNameDisplay').innerText = this.files[0].name">
 
       <div class="modal-btns">
         <button class="btn-action" style="background:#DDD; color:#333; flex:1;" onclick="closeModal()">ยกเลิก</button>
@@ -211,7 +176,7 @@
   </div>
 
   <script>
-    // 📌 ค่าเดิมของคุณ 100% ไม่ต้องแก้เลยค่ะ
+    // 📌 ค่าเดิมของคุณ 100% 
     const MY_LIFF_ID = "2010379470-vQxXyuA8"; 
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxkHcKCsM853RD225LZ7wUnxnBZF1D5HoEXnJm7FaLBY8h12oppFDkYmERoQwoTs9cf6w/exec"; 
 
@@ -236,11 +201,9 @@
         .then(res => res.json())
         .then(data => {
           allDocs = data.docs || data; 
-          
-          // โชว์ชื่อระบบและแผนก (ถ้ามีการส่งค่ามา)
           if(data.sysName) document.getElementById('systemName').innerText = "ชื่อในระบบ: " + data.sysName;
           if(data.sysDept) document.getElementById('systemDept').innerText = "แผนก: " + data.sysDept;
-
+          
           updateCounters();
           renderDocs(allDocs);
           
@@ -257,11 +220,18 @@
       document.getElementById('loadingText').innerHTML = `<span style="color:#FFD600; font-weight:bold;">${msg}</span><br><br><small>กรุณาตรวจสอบ URL หรือ รีเฟรชหน้าใหม่อีกครั้ง</small>`;
     }
 
+    // 🌟 ระบบคำนวณป้าย รอดำเนินการ = ใกล้หมดอายุ + หมดอายุแล้ว (ที่ยังไม่เสร็จ)
     function updateCounters() {
       document.getElementById('c-all').innerText = allDocs.length;
       document.getElementById('c-warn').innerText = allDocs.filter(d => d.status === 'ใกล้หมดอายุ').length;
       document.getElementById('c-danger').innerText = allDocs.filter(d => d.status === 'หมดอายุแล้ว').length;
-      document.getElementById('c-todo').innerText = allDocs.filter(d => d.process === 'ยังไม่ดำเนินการ' || d.process === 'กำลังดำเนินการ' || !d.process).length;
+      
+      // รอดำเนินการ: คือตัวที่ แจ้งเตือนแล้ว และยังไม่ถูกเปลี่ยนสเตตัสเป็นดำเนินการแล้ว
+      document.getElementById('c-todo').innerText = allDocs.filter(d => 
+        (d.status === 'ใกล้หมดอายุ' || d.status === 'หมดอายุแล้ว') && 
+        (d.process !== 'ดำเนินการแล้ว' && d.process !== 'เสร็จสิ้น')
+      ).length;
+
       document.getElementById('c-done').innerText = allDocs.filter(d => d.process === 'ดำเนินการแล้ว' || d.process === 'เสร็จสิ้น').length;
     }
 
@@ -277,10 +247,14 @@
       let filtered = allDocs.filter(doc => {
         const matchText = doc.docName.toLowerCase().includes(searchText) || (doc.agency && doc.agency.toLowerCase().includes(searchText));
         let matchBtn = true;
+        
+        let isPending = (doc.status === 'ใกล้หมดอายุ' || doc.status === 'หมดอายุแล้ว') && (doc.process !== 'ดำเนินการแล้ว' && doc.process !== 'เสร็จสิ้น');
+
         if (currentFilter === 'ใกล้หมดอายุ') matchBtn = (doc.status === 'ใกล้หมดอายุ');
         else if (currentFilter === 'หมดอายุแล้ว') matchBtn = (doc.status === 'หมดอายุแล้ว');
-        else if (currentFilter === 'กำลังดำเนินการ') matchBtn = (doc.process === 'ยังไม่ดำเนินการ' || doc.process === 'กำลังดำเนินการ' || !doc.process);
+        else if (currentFilter === 'รอดำเนินการ') matchBtn = isPending;
         else if (currentFilter === 'ดำเนินการแล้ว') matchBtn = (doc.process === 'ดำเนินการแล้ว' || doc.process === 'เสร็จสิ้น');
+        
         return matchText && matchBtn;
       });
       renderDocs(filtered);
@@ -296,7 +270,11 @@
       container.innerHTML = docs.map(doc => {
         let dayColor = doc.daysLeft < 0 ? 'var(--danger)' : (doc.daysLeft <= 60 ? 'var(--warning)' : 'var(--success)');
         let badgeColor = doc.status === 'ปกติ' ? 'var(--success)' : (doc.status === 'ใกล้หมดอายุ' ? 'var(--warning)' : 'var(--danger)');
-        let processColor = (doc.process === 'ดำเนินการแล้ว' || doc.process === 'เสร็จสิ้น') ? 'var(--success)' : '#FF9800';
+        
+        // 🌟 ออโต้เปลี่ยนสถานะการแสดงผล: ถ้าเตือนแล้ว = รอดำเนินการ
+        let isPending = (doc.status === 'ใกล้หมดอายุ' || doc.status === 'หมดอายุแล้ว') && (doc.process !== 'ดำเนินการแล้ว' && doc.process !== 'เสร็จสิ้น');
+        let displayProcess = isPending ? 'รอดำเนินการ' : (doc.process || 'ปกติ');
+        let processColor = (displayProcess === 'ดำเนินการแล้ว' || displayProcess === 'เสร็จสิ้น') ? 'var(--success)' : (isPending ? '#FF9800' : '#888');
 
         return `
           <div class="doc-card status-${doc.status}">
@@ -304,7 +282,7 @@
             <div class="doc-title">${doc.docName} <br><small style="color:#888; font-weight:normal; font-size:13px;">${doc.agency || 'ไม่ระบุหน่วยงาน'}</small></div>
             
             <div class="process-badge" style="color: ${processColor}; border-color: ${processColor};">
-              <i class="fa-solid fa-spinner"></i> สถานะ: ${doc.process || 'ยังไม่ดำเนินการ'}
+              <i class="fa-solid fa-spinner"></i> สถานะ: ${displayProcess}
             </div>
 
             <div class="doc-details">
@@ -318,9 +296,9 @@
             <div class="btn-group">
               ${doc.fileUrl ? 
                 `<button class="btn-action btn-view" onclick="window.open('${doc.fileUrl}')"><i class="fa-solid fa-paperclip"></i> ดูไฟล์</button>` : 
-                `<button class="btn-action btn-no-file" disabled><i class="fa-solid fa-slash"></i> ไม่มีไฟล์</button>`
+                `<button class="btn-action btn-no-file" disabled><i class="fa-solid fa-folder-closed"></i> ไม่มีไฟล์แนบ</button>`
               }
-              <button class="btn-action btn-update" onclick="openModal(${doc.rowIdx || 0}, '${doc.docName}', '${doc.process || ''}')">
+              <button class="btn-action btn-update" onclick="openModal(${doc.rowIdx || 0}, '${doc.docName}', '${displayProcess}')">
                 <i class="fa-solid fa-pen-to-square"></i> อัปเดต
               </button>
             </div>
@@ -330,31 +308,49 @@
     }
 
     function openModal(rowIdx, docName, currentProcess) {
-      if(!rowIdx) {
-        Swal.fire('ข้อผิดพลาด', 'ไม่พบเลขแถวอ้างอิง กรุณารีเฟรชหน้าเว็บ', 'error');
-        return;
-      }
+      if(!rowIdx) { Swal.fire('ข้อผิดพลาด', 'ไม่พบเลขแถวอ้างอิง กรุณารีเฟรชหน้าเว็บ', 'error'); return; }
       currentRowIdx = rowIdx;
       document.getElementById('modalDocName').innerText = docName;
-      document.getElementById('processSelect').value = currentProcess || 'ยังไม่ดำเนินการ';
+      document.getElementById('processSelect').value = (currentProcess === 'ปกติ') ? 'รอดำเนินการ' : currentProcess;
       document.getElementById('newIssueDate').value = ""; 
       document.getElementById('newExpiryDate').value = "";
+      document.getElementById('newFileInput').value = "";
+      document.getElementById('fileNameDisplay').innerText = "คลิกเพื่อเลือกไฟล์ (PDF/รูปภาพ)";
       document.getElementById('updateModal').style.display = 'flex';
     }
 
     function closeModal() { document.getElementById('updateModal').style.display = 'none'; }
 
+    // 🌟 ฟังก์ชันแปลงไฟล์และส่งข้อมูล
     function saveDocumentUpdate() {
       const newProcess = document.getElementById('processSelect').value;
       const newIssueDate = document.getElementById('newIssueDate').value;
       const newExpiryDate = document.getElementById('newExpiryDate').value;
+      const fileInput = document.getElementById('newFileInput');
 
-      Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      Swal.fire({ title: 'กำลังบันทึกและอัปโหลดไฟล์...', text: 'โปรดรอสักครู่ ห้ามปิดหน้าจอ', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
+      if (fileInput.files.length > 0) {
+        let file = fileInput.files[0];
+        let reader = new FileReader();
+        reader.onload = function(e) {
+          sendUpdateRequest(newProcess, newIssueDate, newExpiryDate, e.target.result, file.name, file.type);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        sendUpdateRequest(newProcess, newIssueDate, newExpiryDate, "", "", "");
+      }
+    }
+
+    function sendUpdateRequest(process, issue, expiry, b64, fName, fType) {
       fetch(GAS_API_URL, {
         method: 'POST',
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: 'updateDocument', rowIdx: currentRowIdx, newProcess: newProcess, newIssueDate: newIssueDate, newExpiryDate: newExpiryDate })
+        body: JSON.stringify({ 
+          action: 'updateDocument', rowIdx: currentRowIdx, newProcess: process, 
+          newIssueDate: issue, newExpiryDate: expiry,
+          fileBase64: b64, fileName: fName, fileMimeType: fType
+        })
       }).then(res => res.json()).then(res => {
         if(res.status === 'success') {
           Swal.fire({ icon: 'success', title: 'อัปเดตสำเร็จ!', confirmButtonColor: '#6200EA' }).then(() => {
@@ -363,9 +359,7 @@
             liff.getProfile().then(p => fetchDashboard(p.userId)); 
           });
         }
-      }).catch(err => {
-        Swal.fire('ล้มเหลว', 'ไม่สามารถบันทึกได้ กรุณาลองใหม่', 'error');
-      });
+      }).catch(err => Swal.fire('ล้มเหลว', 'ไม่สามารถบันทึกได้ กรุณาลองใหม่', 'error'));
     }
   </script>
 </body>
