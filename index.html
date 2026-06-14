@@ -32,7 +32,7 @@
     .search-box input { width: 100%; padding: 12px 15px 12px 40px; border-radius: 15px; border: none; font-family: 'Prompt'; box-sizing: border-box; outline: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1);}
     .search-box i { position: absolute; left: 15px; top: 14px; color: #888; }
 
-    /* 🌟 ปรับปรุง: แถบสรุปสถานะให้สมมาตรและยืดหยุ่นตามหน้าจอ */
+    /* 🌟 แถบสรุปสถานะสมมาตรและยืดหยุ่น */
     .summary-grid {
       display: flex;
       flex-wrap: wrap;
@@ -41,8 +41,8 @@
       margin-bottom: 20px;
     }
     .summary-item {
-      flex: 1 1 0; /* แบ่งพื้นที่เท่าๆ กัน */
-      min-width: 65px; /* กันไม่ให้บีบจนเกินไปในจอมือถือเล็ก */
+      flex: 1 1 0; 
+      min-width: 65px; 
       background: white; padding: 10px 5px; border-radius: 15px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); cursor: pointer; border: 2px solid transparent; transition: 0.2s;
     }
     .summary-item.active { border-color: var(--primary); transform: translateY(-3px); box-shadow: 0 6px 15px rgba(98,0,234,0.3); }
@@ -68,7 +68,7 @@
     .btn-group { display: flex; gap: 10px; margin-top: 15px; }
     .btn-action { flex: 1; padding: 10px; border-radius: 12px; border: none; font-family: 'Prompt'; font-weight: 500; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: 0.3s; }
     .btn-view { background: #E3F2FD; color: #1976D2; }
-    .btn-no-file { background: #F5F5F5; color: #999; cursor: not-allowed; } /* ไอคอนสีซอฟต์ลง */
+    .btn-no-file { background: #F5F5F5; color: #999; cursor: not-allowed; } 
     .btn-update { background: #F3E5F5; color: var(--primary); }
 
     /* Modal */
@@ -92,7 +92,7 @@
 </head>
 <body>
 
-  <div id="loading"><div class="loader" id="spinner"></div><p id="loadingText">กำลังโหลดแดชบอร์ดเอกสาร...</p></div>
+  <div id="loading"><div class="loader" id="spinner"></div><p id="loadingText">กำลังโหลดแดชบอร์ดส่วนตัว...</p></div>
 
   <div class="header-section">
     <h2 style="margin:0;">🗂️ แดชบอร์ดเอกสาร</h2>
@@ -122,7 +122,7 @@
     <div class="summary-item" onclick="setFilter('ใกล้หมดอายุ', this)">
       <i class="fa-solid fa-clock-rotate-left" style="color:var(--warning)"></i>
       <span id="c-warn" style="color:var(--warning)">0</span>
-      <label>ใกล้หมดอายุ</label>
+      <label>ใกล้หมด</label>
     </div>
     <div class="summary-item" onclick="setFilter('หมดอายุแล้ว', this)">
       <i class="fa-solid fa-circle-exclamation" style="color:var(--danger)"></i>
@@ -132,12 +132,12 @@
     <div class="summary-item" onclick="setFilter('รอดำเนินการ', this)">
       <i class="fa-solid fa-spinner" style="color:#FF9800"></i>
       <span id="c-todo" style="color:#FF9800">0</span>
-      <label>รอดำเนินการ</label>
+      <label>รอจัดการ</label>
     </div>
     <div class="summary-item" onclick="setFilter('ดำเนินการแล้ว', this)">
       <i class="fa-solid fa-check-circle" style="color:var(--success)"></i>
       <span id="c-done" style="color:var(--success)">0</span>
-      <label>ดำเนินการแล้ว</label>
+      <label>ยื่นแล้ว</label>
     </div>
   </div>
 
@@ -158,7 +158,7 @@
       <select id="processSelect">
         <option value="รอดำเนินการ">🟡 รอดำเนินการ</option>
         <option value="ดำเนินการแล้ว">🟢 ดำเนินการแล้ว (หยุดแจ้งเตือน)</option>
-        <option value="เสร็จสิ้น">✅ เสร็จสิ้น (หยุดแจ้งเตือน)</option>
+        <option value="เสร็จสิ้น">✅ เสร็จสิ้น (บันทึกไฟล์ใหม่และเริ่มใช้งานรอบใหม่)</option>
       </select>
 
       <label><i class="fa-solid fa-cloud-arrow-up"></i> อัปโหลดไฟล์แนบใหม่ (ถ้ามี)</label>
@@ -176,7 +176,6 @@
   </div>
 
   <script>
-    // 📌 ค่าเดิมของคุณ 100% 
     const MY_LIFF_ID = "2010379470-vQxXyuA8"; 
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxkHcKCsM853RD225LZ7wUnxnBZF1D5HoEXnJm7FaLBY8h12oppFDkYmERoQwoTs9cf6w/exec"; 
 
@@ -220,19 +219,17 @@
       document.getElementById('loadingText').innerHTML = `<span style="color:#FFD600; font-weight:bold;">${msg}</span><br><br><small>กรุณาตรวจสอบ URL หรือ รีเฟรชหน้าใหม่อีกครั้ง</small>`;
     }
 
-    // 🌟 ระบบคำนวณป้าย รอดำเนินการ = ใกล้หมดอายุ + หมดอายุแล้ว (ที่ยังไม่เสร็จ)
     function updateCounters() {
       document.getElementById('c-all').innerText = allDocs.length;
       document.getElementById('c-warn').innerText = allDocs.filter(d => d.status === 'ใกล้หมดอายุ').length;
       document.getElementById('c-danger').innerText = allDocs.filter(d => d.status === 'หมดอายุแล้ว').length;
       
-      // รอดำเนินการ: คือตัวที่ แจ้งเตือนแล้ว และยังไม่ถูกเปลี่ยนสเตตัสเป็นดำเนินการแล้ว
       document.getElementById('c-todo').innerText = allDocs.filter(d => 
         (d.status === 'ใกล้หมดอายุ' || d.status === 'หมดอายุแล้ว') && 
         (d.process !== 'ดำเนินการแล้ว' && d.process !== 'เสร็จสิ้น')
       ).length;
 
-      document.getElementById('c-done').innerText = allDocs.filter(d => d.process === 'ดำเนินการแล้ว' || d.process === 'เสร็จสิ้น').length;
+      document.getElementById('c-done').innerText = allDocs.filter(d => d.process === 'ดำเนินการแล้ว').length;
     }
 
     function setFilter(type, element) {
@@ -253,7 +250,7 @@
         if (currentFilter === 'ใกล้หมดอายุ') matchBtn = (doc.status === 'ใกล้หมดอายุ');
         else if (currentFilter === 'หมดอายุแล้ว') matchBtn = (doc.status === 'หมดอายุแล้ว');
         else if (currentFilter === 'รอดำเนินการ') matchBtn = isPending;
-        else if (currentFilter === 'ดำเนินการแล้ว') matchBtn = (doc.process === 'ดำเนินการแล้ว' || doc.process === 'เสร็จสิ้น');
+        else if (currentFilter === 'ดำเนินการแล้ว') matchBtn = (doc.process === 'ดำเนินการแล้ว');
         
         return matchText && matchBtn;
       });
@@ -271,10 +268,9 @@
         let dayColor = doc.daysLeft < 0 ? 'var(--danger)' : (doc.daysLeft <= 60 ? 'var(--warning)' : 'var(--success)');
         let badgeColor = doc.status === 'ปกติ' ? 'var(--success)' : (doc.status === 'ใกล้หมดอายุ' ? 'var(--warning)' : 'var(--danger)');
         
-        // 🌟 ออโต้เปลี่ยนสถานะการแสดงผล: ถ้าเตือนแล้ว = รอดำเนินการ
-        let isPending = (doc.status === 'ใกล้หมดอายุ' || doc.status === 'หมดอายุแล้ว') && (doc.process !== 'ดำเนินการแล้ว' && doc.process !== 'เสร็จสิ้น');
-        let displayProcess = isPending ? 'รอดำเนินการ' : (doc.process || 'ปกติ');
-        let processColor = (displayProcess === 'ดำเนินการแล้ว' || displayProcess === 'เสร็จสิ้น') ? 'var(--success)' : (isPending ? '#FF9800' : '#888');
+        let isAlert = (doc.status === 'ใกล้หมดอายุ' || doc.status === 'หมดอายุแล้ว');
+        let displayProcess = (isAlert && doc.process === 'กำลังใช้งาน') ? 'รอดำเนินการ' : doc.process;
+        let processColor = (displayProcess === 'ดำเนินการแล้ว' || displayProcess === 'เสร็จสิ้น') ? 'var(--success)' : (displayProcess === 'รอดำเนินการ' ? '#FF9800' : '#888');
 
         return `
           <div class="doc-card status-${doc.status}">
@@ -311,7 +307,7 @@
       if(!rowIdx) { Swal.fire('ข้อผิดพลาด', 'ไม่พบเลขแถวอ้างอิง กรุณารีเฟรชหน้าเว็บ', 'error'); return; }
       currentRowIdx = rowIdx;
       document.getElementById('modalDocName').innerText = docName;
-      document.getElementById('processSelect').value = (currentProcess === 'ปกติ') ? 'รอดำเนินการ' : currentProcess;
+      document.getElementById('processSelect').value = (currentProcess === 'กำลังใช้งาน') ? 'รอดำเนินการ' : currentProcess;
       document.getElementById('newIssueDate').value = ""; 
       document.getElementById('newExpiryDate').value = "";
       document.getElementById('newFileInput').value = "";
@@ -321,45 +317,69 @@
 
     function closeModal() { document.getElementById('updateModal').style.display = 'none'; }
 
-    // 🌟 ฟังก์ชันแปลงไฟล์และส่งข้อมูล
     function saveDocumentUpdate() {
-      const newProcess = document.getElementById('processSelect').value;
+      let processVal = document.getElementById('processSelect').value;
       const newIssueDate = document.getElementById('newIssueDate').value;
       const newExpiryDate = document.getElementById('newExpiryDate').value;
       const fileInput = document.getElementById('newFileInput');
 
-      Swal.fire({ title: 'กำลังบันทึกและอัปโหลดไฟล์...', text: 'โปรดรอสักครู่ ห้ามปิดหน้าจอ', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      if (processVal === 'เสร็จสิ้น') {
+        processVal = 'กำลังใช้งาน';
+      }
+
+      closeModal();
+
+      Swal.fire({ 
+        title: 'กำลังบันทึกข้อมูล...', 
+        text: 'โปรดรอสักครู่ ระบบกำลังอัปโหลดไฟล์และอัปเดตสถานะ',
+        allowOutsideClick: false, 
+        didOpen: () => Swal.showLoading() 
+      });
 
       if (fileInput.files.length > 0) {
         let file = fileInput.files[0];
         let reader = new FileReader();
         reader.onload = function(e) {
-          sendUpdateRequest(newProcess, newIssueDate, newExpiryDate, e.target.result, file.name, file.type);
+          sendToGAS(processVal, newIssueDate, newExpiryDate, e.target.result, file.name, file.type);
         };
         reader.readAsDataURL(file);
       } else {
-        sendUpdateRequest(newProcess, newIssueDate, newExpiryDate, "", "", "");
+        sendToGAS(processVal, newIssueDate, newExpiryDate, "", "", "");
       }
     }
 
-    function sendUpdateRequest(process, issue, expiry, b64, fName, fType) {
+    function sendToGAS(process, issue, expiry, b64, fName, fType) {
       fetch(GAS_API_URL, {
         method: 'POST',
         headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({ 
-          action: 'updateDocument', rowIdx: currentRowIdx, newProcess: process, 
-          newIssueDate: issue, newExpiryDate: expiry,
-          fileBase64: b64, fileName: fName, fileMimeType: fType
+          action: 'updateDocument', 
+          rowIdx: currentRowIdx, 
+          newProcess: process, 
+          newIssueDate: issue, 
+          newExpiryDate: expiry,
+          fileBase64: b64, 
+          fileName: fName, 
+          fileMimeType: fType
         })
-      }).then(res => res.json()).then(res => {
+      })
+      .then(res => res.json())
+      .then(res => {
         if(res.status === 'success') {
-          Swal.fire({ icon: 'success', title: 'อัปเดตสำเร็จ!', confirmButtonColor: '#6200EA' }).then(() => {
-            closeModal();
+          Swal.fire({ 
+            icon: 'success', 
+            title: 'สำเร็จ!', 
+            text: 'ข้อมูลของคุณถูกบันทึกเรียบร้อยแล้ว',
+            confirmButtonColor: '#6200EA' 
+          }).then(() => {
             document.getElementById('loading').style.display = 'flex';
             liff.getProfile().then(p => fetchDashboard(p.userId)); 
           });
         }
-      }).catch(err => Swal.fire('ล้มเหลว', 'ไม่สามารถบันทึกได้ กรุณาลองใหม่', 'error'));
+      })
+      .catch(err => {
+        Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกได้ กรุณาเช็คอินเทอร์เน็ตหรือลองใหม่', 'error');
+      });
     }
   </script>
 </body>
