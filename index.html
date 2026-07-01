@@ -284,6 +284,11 @@
             <div class="doc-details">
               <div><i class="fa-regular fa-calendar-check"></i> ออกให้: <br>${doc.startDate}</div>
               <div><i class="fa-regular fa-calendar-xmark"></i> หมดอายุ: <br>${doc.endDate}</div>
+              <div style="grid-column:1 / span 2; background:#FFF8E1; padding:8px; border-radius:10px; color:#795548;">
+                <i class="fa-solid fa-bell"></i>
+                แจ้งเตือนก่อนหมดอายุ:
+                <b>${doc.alertDays ? doc.alertDays + ' วัน' : 'ไม่ได้ระบุ'}</b>
+              </div>
             </div>
             <div class="days-badge" style="color:${dayColor}">              
               ${doc.daysLeft < 0 ? '🚨 เลยกำหนด ' + Math.floor(Math.abs(doc.daysLeft)) : '⌛ เหลือเวลา ' + Math.floor(doc.daysLeft)} วัน
@@ -294,13 +299,40 @@
                 `<button class="btn-action btn-view" onclick="window.open('${doc.fileUrl}')"><i class="fa-solid fa-paperclip"></i> ดูไฟล์</button>` : 
                 `<button class="btn-action btn-no-file" disabled><i class="fa-solid fa-folder-closed"></i> ไม่มีไฟล์แนบ</button>`
               }
-              <button class="btn-action btn-update" onclick="openModal(${doc.rowIdx || 0}, '${doc.docName}', '${displayProcess}')">
+            
+              <button class="btn-action btn-update" onclick="openModal(${doc.rowIdx || 0}, '${escapeJs(doc.docName)}', '${displayProcess}')">
                 <i class="fa-solid fa-pen-to-square"></i> อัปเดต
+              </button>
+            </div>
+            
+            <div class="btn-group" style="margin-top:10px;">
+              <button class="btn-action" style="background:#FFF3E0; color:#E65100;" onclick="openAlertSetting(${doc.rowIdx || 0})">
+                <i class="fa-solid fa-bell"></i> ตั้งค่าแจ้งเตือน
               </button>
             </div>
           </div>
         `;
       }).join('');
+    }
+    function escapeJs(text) {
+      return String(text || "")
+        .replace(/\\/g, "\\\\")
+        .replace(/'/g, "\\'")
+        .replace(/"/g, "&quot;")
+        .replace(/\n/g, " ");
+    }
+    
+    function openAlertSetting(rowIdx) {
+      if (!rowIdx) {
+        Swal.fire('ข้อผิดพลาด', 'ไม่พบเลขแถวเอกสาร กรุณารีเฟรชหน้าใหม่', 'error');
+        return;
+      }
+    
+      // ✅ ใส่ URL หน้า Alert ที่สร้างใหม่ตรงนี้
+      const ALERT_PAGE_URL = "https://liff.line.me/2010379470-8tkodFLS";
+    
+      const url = `${ALERT_PAGE_URL}?rowIdx=${encodeURIComponent(rowIdx)}`;
+      window.open(url, "_blank");
     }
 
     function openModal(rowIdx, docName, currentProcess) {
