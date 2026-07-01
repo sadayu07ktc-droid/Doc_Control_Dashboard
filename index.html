@@ -154,6 +154,15 @@
       <label><i class="fa-regular fa-calendar-xmark"></i> วันที่หมดอายุฉบับใหม่ (ถ้ามี)</label>
       <input type="date" id="newExpiryDate">
 
+      <label><i class="fa-solid fa-bell"></i> แจ้งเตือนก่อนหมดอายุ (วัน)</label>
+      <input type="number" id="newAlertDays" min="0" placeholder="เช่น 30">
+      
+      <label><i class="fa-solid fa-toggle-on"></i> Alert เพิ่มเติม</label>
+      <select id="alertToggle">
+        <option value="ON">🟢 เปิดใช้งาน</option>
+        <option value="OFF">🔴 ปิดใช้งาน</option>
+      </select>
+
       <label><i class="fa-solid fa-spinner"></i> สถานะความคืบหน้า</label>
       <select id="processSelect">
         <option value="รอดำเนินการ">🟡 รอดำเนินการ</option>
@@ -346,7 +355,7 @@
                 </button>`
               }
             
-              <button class="btn-action btn-update" onclick="openModal(${doc.rowIdx || 0}, '${escapeJs(doc.docName)}', '${displayProcess}')">
+              <button class="btn-action btn-update" onclick="openModal(${doc.rowIdx || 0}, '${escapeJs(doc.docName)}', '${displayProcess}', '${doc.alertDays || ""}')"
                 <i class="fa-solid fa-pen-to-square"></i> อัปเดต
               </button>
             </div>
@@ -404,13 +413,21 @@
       window.open(url, "_blank");
     }
 
-    function openModal(rowIdx, docName, currentProcess) {
-      if(!rowIdx) { Swal.fire('ข้อผิดพลาด', 'ไม่พบเลขแถวอ้างอิง กรุณารีเฟรชหน้าเว็บ', 'error'); return; }
+    function openModal(rowIdx, docName, currentProcess, alertDays) {
+      if(!rowIdx) { 
+        Swal.fire('ข้อผิดพลาด', 'ไม่พบเลขแถวอ้างอิง กรุณารีเฟรชหน้าเว็บ', 'error'); 
+        return; 
+      }
+    
       currentRowIdx = rowIdx;
       document.getElementById('modalDocName').innerText = docName;
       document.getElementById('processSelect').value = (currentProcess === 'กำลังใช้งาน') ? 'รอดำเนินการ' : currentProcess;
+    
       document.getElementById('newIssueDate').value = ""; 
       document.getElementById('newExpiryDate').value = "";
+      document.getElementById('newAlertDays').value = alertDays || "";
+      document.getElementById('alertToggle').value = "ON";
+    
       document.getElementById('newFileInput').value = "";
       document.getElementById('fileNameDisplay').innerText = "คลิกเพื่อเลือกไฟล์ (PDF/รูปภาพ)";
       document.getElementById('updateModal').style.display = 'flex';
@@ -419,69 +436,75 @@
     function closeModal() { document.getElementById('updateModal').style.display = 'none'; }
 
     function saveDocumentUpdate() {
-      let processVal = document.getElementById('processSelect').value;
-      const newIssueDate = document.getElementById('newIssueDate').value;
-      const newExpiryDate = document.getElementById('newExpiryDate').value;
-      const fileInput = document.getElementById('newFileInput');
+  let processVal = document.getElementById('processSelect').value;
+  const newIssueDate = document.getElementById('newIssueDate').value;
+  const newExpiryDate = document.getElementById('newExpiryDate').value;
+  const newAlertDays = document.getElementById('newAlertDays').value;
+  const alertToggle = document.getElementById('alertToggle').value;
+  const fileInput = document.getElementById('newFileInput');
 
-      if (processVal === 'เสร็จสิ้น') {
-        processVal = 'กำลังใช้งาน';
-      }
+  if (processVal === 'เสร็จสิ้น') {
+    processVal = 'กำลังใช้งาน';
+  }
 
-      closeModal();
+  closeModal();
 
+  Swal.fire({ 
+    title: 'กำลังบันทึกข้อมูล...', 
+    text: 'โปรดรอสักครู่ ระบบกำลังอัปโหลดไฟล์และอัปเดตสถานะ',
+    allowOutsideClick: false, 
+    didOpen: () => Swal.showLoading() 
+  });
+
+  if (fileInput.files.length > 0) {
+    let file = fileInput.files[0];
+    let reader = new FileReader();
+    reader.onload = function(e) {
+      sendToGAS(processVal, newIssueDate, newExpiryDate, newAlertDays, alertToggle, e.target.result, file.name, file.type);
+    };
+    reader.readAsDataURL(file);
+  } else {
+    sendToGAS(processVal, newIssueDate, newExpiryDate, newAlertDays, alertToggle, "", "", "");
+  }
+}
+
+function sendToGAS(process, issue, expiry, alertDays, alertToggle, b64, fName, fType) {
+  fetch(GAS_API_URL, {
+    method: 'POST',
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({ 
+      action: 'updateDocument', 
+      rowIdx: currentRowIdx, 
+      newProcess: process, 
+      newIssueDate: issue, 
+      newExpiryDate: expiry,
+      newAlertDays: alertDays,
+      alertToggle: alertToggle,
+      fileBase64: b64, 
+      fileName: fName, 
+      fileMimeType: fType
+    })
+  })
+  .then(res => res.json())
+  .then(res => {
+    if(res.status === 'success') {
       Swal.fire({ 
-        title: 'กำลังบันทึกข้อมูล...', 
-        text: 'โปรดรอสักครู่ ระบบกำลังอัปโหลดไฟล์และอัปเดตสถานะ',
-        allowOutsideClick: false, 
-        didOpen: () => Swal.showLoading() 
-      });
-
-      if (fileInput.files.length > 0) {
-        let file = fileInput.files[0];
-        let reader = new FileReader();
-        reader.onload = function(e) {
-          sendToGAS(processVal, newIssueDate, newExpiryDate, e.target.result, file.name, file.type);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        sendToGAS(processVal, newIssueDate, newExpiryDate, "", "", "");
-      }
-    }
-
-    function sendToGAS(process, issue, expiry, b64, fName, fType) {
-      fetch(GAS_API_URL, {
-        method: 'POST',
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ 
-          action: 'updateDocument', 
-          rowIdx: currentRowIdx, 
-          newProcess: process, 
-          newIssueDate: issue, 
-          newExpiryDate: expiry,
-          fileBase64: b64, 
-          fileName: fName, 
-          fileMimeType: fType
-        })
-      })
-      .then(res => res.json())
-      .then(res => {
-        if(res.status === 'success') {
-          Swal.fire({ 
-            icon: 'success', 
-            title: 'สำเร็จ!', 
-            text: 'ข้อมูลของคุณถูกบันทึกเรียบร้อยแล้ว',
-            confirmButtonColor: '#6200EA' 
-          }).then(() => {
-            document.getElementById('loading').style.display = 'flex';
-            liff.getProfile().then(p => fetchDashboard(p.userId)); 
-          });
-        }
-      })
-      .catch(err => {
-        Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกได้ กรุณาเช็คอินเทอร์เน็ตหรือลองใหม่', 'error');
+        icon: 'success', 
+        title: 'สำเร็จ!', 
+        text: 'ข้อมูลของคุณถูกบันทึกเรียบร้อยแล้ว',
+        confirmButtonColor: '#6200EA' 
+      }).then(() => {
+        document.getElementById('loading').style.display = 'flex';
+        liff.getProfile().then(p => fetchDashboard(p.userId)); 
       });
     }
+  })
+  .catch(err => {
+    Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกได้ กรุณาเช็คอินเทอร์เน็ตหรือลองใหม่', 'error');
+  });
+}
+
+    
   </script>
 </body>
 </html>
