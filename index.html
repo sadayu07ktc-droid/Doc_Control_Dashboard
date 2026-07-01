@@ -259,11 +259,17 @@
 
     function renderDocs(docs) {
       const container = document.getElementById('docContainer');
+    
       if (docs.length === 0) { 
-        container.innerHTML = `<div class="empty-state"><i class="fa-regular fa-folder-open" style="font-size:50px; color:#DDD; margin-bottom:15px; display:block;"></i><p>ไม่พบเอกสารที่ค้นหาครับ</p></div>`; 
+        container.innerHTML = `
+          <div class="empty-state">
+            <i class="fa-regular fa-folder-open" style="font-size:50px; color:#DDD; margin-bottom:15px; display:block;"></i>
+            <p>ไม่พบเอกสารที่ค้นหาครับ</p>
+          </div>
+        `; 
         return; 
       }
-
+    
       container.innerHTML = docs.map(doc => {
         let dayColor = doc.daysLeft < 0 ? 'var(--danger)' : (doc.daysLeft <= 60 ? 'var(--warning)' : 'var(--success)');
         let badgeColor = doc.status === 'ปกติ' ? 'var(--success)' : (doc.status === 'ใกล้หมดอายุ' ? 'var(--warning)' : 'var(--danger)');
@@ -271,33 +277,73 @@
         let isAlert = (doc.status === 'ใกล้หมดอายุ' || doc.status === 'หมดอายุแล้ว');
         let displayProcess = (isAlert && doc.process === 'กำลังใช้งาน') ? 'รอดำเนินการ' : doc.process;
         let processColor = (displayProcess === 'ดำเนินการแล้ว' || displayProcess === 'เสร็จสิ้น') ? 'var(--success)' : (displayProcess === 'รอดำเนินการ' ? '#FF9800' : '#888');
-
+    
+        const customAlertHtml = doc.customAlerts && doc.customAlerts.length > 0 ? `
+          <div style="background:#FFF3E0; padding:10px; border-radius:12px; margin-top:12px; color:#E65100; font-size:13px; line-height:1.6;">
+            <b>🔔 Alert เพิ่มเติมที่ตั้งไว้</b><br>
+            ${doc.customAlerts.map(a => `
+              <div style="margin-top:4px;">
+                • ${a.topic || '-'} | ${a.frequency || '-'}
+                ${a.day ? ' วัน' + a.day : ''}
+                ${a.date ? ' วันที่ ' + a.date : ''}
+                ${a.time ? ' เวลา ' + a.time : ''}
+              </div>
+            `).join('')}
+          </div>
+        ` : `
+          <div style="background:#FFF3E0; padding:10px; border-radius:12px; margin-top:12px; color:#999; font-size:13px;">
+            🔕 ยังไม่มี Alert เพิ่มเติม
+          </div>
+        `;
+    
         return `
           <div class="doc-card status-${doc.status}">
             <div class="status-badge" style="background:${badgeColor}">${doc.status}</div>
-            <div class="doc-title">${doc.docName} <br><small style="color:#888; font-weight:normal; font-size:13px;">${doc.agency || 'ไม่ระบุหน่วยงาน'}</small></div>
+    
+            <div class="doc-title">
+              ${doc.docName}
+              <br>
+              <small style="color:#888; font-weight:normal; font-size:13px;">
+                ${doc.agency || 'ไม่ระบุหน่วยงาน'}
+              </small>
+            </div>
             
-            <div class="process-badge" style="color: ${processColor}; border-color: ${processColor};">
+            <div class="process-badge" style="color:${processColor}; border-color:${processColor};">
               <i class="fa-solid fa-spinner"></i> สถานะ: ${displayProcess}
             </div>
-
+    
             <div class="doc-details">
-              <div><i class="fa-regular fa-calendar-check"></i> ออกให้: <br>${doc.startDate}</div>
-              <div><i class="fa-regular fa-calendar-xmark"></i> หมดอายุ: <br>${doc.endDate}</div>
+              <div>
+                <i class="fa-regular fa-calendar-check"></i> ออกให้:
+                <br>${doc.startDate}
+              </div>
+    
+              <div>
+                <i class="fa-regular fa-calendar-xmark"></i> หมดอายุ:
+                <br>${doc.endDate}
+              </div>
+    
               <div style="grid-column:1 / span 2; background:#FFF8E1; padding:8px; border-radius:10px; color:#795548;">
                 <i class="fa-solid fa-bell"></i>
                 แจ้งเตือนก่อนหมดอายุ:
                 <b>${doc.alertDays ? doc.alertDays + ' วัน' : 'ไม่ได้ระบุ'}</b>
               </div>
             </div>
-            <div class="days-badge" style="color:${dayColor}">              
+    
+            <div class="days-badge" style="color:${dayColor}">
               ${doc.daysLeft < 0 ? '🚨 เลยกำหนด ' + Math.floor(Math.abs(doc.daysLeft)) : '⌛ เหลือเวลา ' + Math.floor(doc.daysLeft)} วัน
             </div>
+    
+            ${customAlertHtml}
             
             <div class="btn-group">
               ${doc.fileUrl ? 
-                `<button class="btn-action btn-view" onclick="window.open('${doc.fileUrl}')"><i class="fa-solid fa-paperclip"></i> ดูไฟล์</button>` : 
-                `<button class="btn-action btn-no-file" disabled><i class="fa-solid fa-folder-closed"></i> ไม่มีไฟล์แนบ</button>`
+                `<button class="btn-action btn-view" onclick="window.open('${doc.fileUrl}')">
+                  <i class="fa-solid fa-paperclip"></i> ดูไฟล์
+                </button>` : 
+                `<button class="btn-action btn-no-file" disabled>
+                  <i class="fa-solid fa-folder-closed"></i> ไม่มีไฟล์แนบ
+                </button>`
               }
             
               <button class="btn-action btn-update" onclick="openModal(${doc.rowIdx || 0}, '${escapeJs(doc.docName)}', '${displayProcess}')">
