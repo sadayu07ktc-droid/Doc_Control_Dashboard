@@ -87,6 +87,34 @@
     .loader { border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid white; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+    /* ===== ปุ่มสลับมุมมอง ===== */
+    .view-bar { display: flex; gap: 6px; background: rgba(255,255,255,0.22); padding: 4px; border-radius: 14px; margin-bottom: 15px; }
+    .view-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 6px; border: none; border-radius: 11px; background: transparent; color: rgba(255,255,255,0.85); font-family: 'Prompt'; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: 0.25s; }
+    .view-btn:hover { background: rgba(255,255,255,0.16); }
+    .view-btn.on { background: white; color: var(--primary); box-shadow: 0 3px 8px rgba(0,0,0,0.12); }
+
+    /* ===== มุมมองรายการ ===== */
+    .doc-list.view-list { gap: 8px; }
+    .list-row { display: flex; align-items: center; gap: 11px; background: white; border-radius: 14px; padding: 12px 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.06); cursor: pointer; transition: 0.2s; }
+    .list-row:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.1); }
+    .list-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+    .list-main { flex: 1; min-width: 0; }
+    .list-main b { display: block; font-size: 13.5px; color: var(--primary); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .list-main small { display: block; font-size: 11.5px; color: #888; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .list-days { font-size: 12.5px; font-weight: 700; white-space: nowrap; flex: none; }
+
+    /* ===== มุมมองตาราง ===== */
+    .tbl-wrap { background: white; border-radius: 16px; padding: 6px 6px 2px; box-shadow: 0 8px 15px rgba(0,0,0,0.08); overflow-x: auto; }
+    .tbl { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 520px; }
+    .tbl th { text-align: left; font-weight: 500; color: #888; font-size: 11px; padding: 10px 8px; border-bottom: 1px solid #EEE; white-space: nowrap; }
+    .tbl td { padding: 10px 8px; border-bottom: 1px solid #F5F5F5; color: #444; vertical-align: middle; }
+    .tbl tbody tr { cursor: pointer; transition: 0.15s; }
+    .tbl tbody tr:hover { background: #FAF5FF; }
+    .tbl td b { color: var(--primary); font-weight: 600; }
+    .tbl td small { color: #999; font-size: 11px; }
+    .tbl-badge { display: inline-block; padding: 3px 9px; border-radius: 20px; color: white; font-size: 10px; font-weight: 500; white-space: nowrap; }
+    .tbl-hint { text-align: center; font-size: 11px; color: #AAA; margin: 8px 0; }
+
     .li { vertical-align: -2px; flex: none; }
     .summary-item .li { margin-bottom: 4px; }
     .search-box .li { position: absolute; left: 14px; top: 13px; color: #888; }
@@ -144,6 +172,21 @@
       <span id="c-done" style="color:var(--success)">0</span>
       <label>ดำเนินการแล้ว</label>
     </div>
+  </div>
+
+  <div class="view-bar" id="viewBar" style="display:none;">
+    <button class="view-btn on" data-v="card" onclick="setView('card', this)">
+      <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="8" rx="2"/><rect x="3" y="13" width="18" height="8" rx="2"/></svg>
+      การ์ด
+    </button>
+    <button class="view-btn" data-v="list" onclick="setView('list', this)">
+      <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
+      รายการ
+    </button>
+    <button class="view-btn" data-v="table" onclick="setView('table', this)">
+      <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9.5" x2="21" y2="9.5"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="10" y1="4" x2="10" y2="20"/></svg>
+      ตาราง
+    </button>
   </div>
 
   <div class="doc-list" id="docContainer"></div>
@@ -226,6 +269,8 @@
           document.getElementById('userProfile').style.display = 'flex';
           document.getElementById('searchContainer').style.display = 'block';
           document.getElementById('summaryArea').style.display = 'flex';
+          document.getElementById('viewBar').style.display = 'flex';
+          initViewBar();
         })
         .catch(error => showError('ระบบหลังบ้านขัดข้อง ไม่สามารถดึงข้อมูลได้'));
     }
@@ -273,10 +318,29 @@
       renderDocs(filtered);
     }
 
+    // ===== สลับมุมมอง: การ์ด / รายการ / ตาราง =====
+    let VIEW = localStorage.getItem('dc_view') || 'card';
+
+    function setView(v, el) {
+      VIEW = v;
+      try { localStorage.setItem('dc_view', v); } catch (e) {}
+      document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('on'));
+      if (el) el.classList.add('on');
+      filterData();
+    }
+
+    function initViewBar() {
+      const bar = document.getElementById('viewBar');
+      if (bar) bar.querySelectorAll('.view-btn').forEach(b => {
+        b.classList.toggle('on', b.dataset.v === VIEW);
+      });
+    }
+
     function renderDocs(docs) {
       const container = document.getElementById('docContainer');
-    
-      if (docs.length === 0) { 
+      container.className = 'doc-list view-' + VIEW;
+
+      if (docs.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
             <span style="color:#DDD;display:block;margin-bottom:15px"><svg class="li" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v2"/><path d="m2.6 19.4 2-7A1 1 0 0 1 5.6 12H21a1 1 0 0 1 1 1.2l-1.6 6A2 2 0 0 1 18.5 21H4a2 2 0 0 1-1.4-.6z"/></svg></span>
@@ -286,7 +350,60 @@
         return; 
       }
     
-      container.innerHTML = docs.map(doc => {
+      if (VIEW === 'list')  { container.innerHTML = docs.map(listHtml).join('');  return; }
+      if (VIEW === 'table') { container.innerHTML = tableHtml(docs);              return; }
+      container.innerHTML = docs.map(cardHtml).join('');
+    }
+
+    /** ค่าที่ทุกมุมมองใช้ร่วมกัน */
+    function docMeta(doc) {
+      const dayColor = doc.daysLeft < 0 ? 'var(--danger)' : (doc.daysLeft <= 60 ? 'var(--warning)' : 'var(--success)');
+      const badgeColor = doc.status === 'ปกติ' ? 'var(--success)' : (doc.status === 'ใกล้หมดอายุ' ? 'var(--warning)' : 'var(--danger)');
+      const isAlert = (doc.status === 'ใกล้หมดอายุ' || doc.status === 'หมดอายุแล้ว');
+      const displayProcess = (isAlert && doc.process === 'กำลังใช้งาน') ? 'รอดำเนินการ' : doc.process;
+      const daysText = doc.daysLeft < 0 ? ('เลย ' + Math.floor(Math.abs(doc.daysLeft)) + ' วัน') : (Math.floor(doc.daysLeft) + ' วัน');
+      return { dayColor, badgeColor, displayProcess, daysText };
+    }
+
+    /** มุมมองรายการ — แถวเตี้ย เห็นได้เยอะในจอเดียว */
+    function listHtml(doc) {
+      const m = docMeta(doc);
+      return `
+        <div class="list-row" onclick="openModal(${doc.rowIdx || 0}, '${escapeJs(doc.docName)}', '${m.displayProcess}', '${doc.alertDays || ""}')">
+          <span class="list-dot" style="background:${m.badgeColor}"></span>
+          <div class="list-main">
+            <b>${doc.docName}</b>
+            <small>${doc.agency || 'ไม่ระบุหน่วยงาน'} · หมดอายุ ${doc.endDate}</small>
+          </div>
+          <span class="list-days" style="color:${m.dayColor}">${m.daysText}</span>
+        </div>`;
+    }
+
+    /** มุมมองตาราง — เทียบหลายใบพร้อมกัน เลื่อนแนวนอนได้ */
+    function tableHtml(docs) {
+      const rows = docs.map(doc => {
+        const m = docMeta(doc);
+        return `
+          <tr onclick="openModal(${doc.rowIdx || 0}, '${escapeJs(doc.docName)}', '${m.displayProcess}', '${doc.alertDays || ""}')">
+            <td><b>${doc.docName}</b><br><small>${doc.agency || '-'}</small></td>
+            <td>${doc.endDate}</td>
+            <td style="color:${m.dayColor}; font-weight:600; white-space:nowrap">${m.daysText}</td>
+            <td><span class="tbl-badge" style="background:${m.badgeColor}">${doc.status}</span></td>
+            <td style="white-space:nowrap">${m.displayProcess}</td>
+          </tr>`;
+      }).join('');
+      return `
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>เอกสาร</th><th>หมดอายุ</th><th>คงเหลือ</th><th>สถานะ</th><th>ความคืบหน้า</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <p class="tbl-hint">แตะแถวเพื่อเปิดหน้าอัปเดต</p>
+        </div>`;
+    }
+
+    /** มุมมองการ์ด — ละเอียดที่สุด มีปุ่มจัดการครบ */
+    function cardHtml(doc) {
         let dayColor = doc.daysLeft < 0 ? 'var(--danger)' : (doc.daysLeft <= 60 ? 'var(--warning)' : 'var(--success)');
         let badgeColor = doc.status === 'ปกติ' ? 'var(--success)' : (doc.status === 'ใกล้หมดอายุ' ? 'var(--warning)' : 'var(--danger)');
         
@@ -383,7 +500,6 @@
             </div>
           </div>
         `;
-      }).join('');
     }
 
     // ไอคอนลายเส้นที่ใช้ใน template ของการ์ด
