@@ -115,6 +115,9 @@
     .tbl-badge { display: inline-block; padding: 3px 9px; border-radius: 20px; color: white; font-size: 10px; font-weight: 500; white-space: nowrap; }
     .tbl-hint { text-align: center; font-size: 11px; color: #AAA; margin: 8px 0; }
 
+    .be-echo { display: none; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--primary); font-weight: 500; }
+    .be-echo.show { display: flex; }
+    .be-echo em { font-style: normal; font-weight: 400; color: #999; }
     .li { vertical-align: -2px; flex: none; }
     .summary-item .li { margin-bottom: 4px; }
     .search-box .li { position: absolute; left: 14px; top: 13px; color: #888; }
@@ -197,10 +200,12 @@
       <p id="modalDocName" style="font-size:14px; color:#555; text-align:center; font-weight:bold; margin-bottom:15px;"></p>
       
       <label><svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/></svg> วันที่ออกเอกสารฉบับใหม่ (ถ้ามี)</label>
-      <input type="date" id="newIssueDate">
+      <input type="date" id="newIssueDate" onchange="echoBE('newIssueDate','issueBE')">
+      <div class="be-echo" id="issueBE"></div>
 
       <label><svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="10" y1="14" x2="14" y2="18"/><line x1="14" y1="14" x2="10" y2="18"/></svg> วันที่หมดอายุฉบับใหม่ (ถ้ามี)</label>
-      <input type="date" id="newExpiryDate">
+      <input type="date" id="newExpiryDate" onchange="echoBE('newExpiryDate','expiryBE')">
+      <div class="be-echo" id="expiryBE"></div>
 
       <label><svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg> แจ้งเตือนก่อนหมดอายุ (วัน)</label>
       <input type="number" id="newAlertDays" min="0" placeholder="เช่น 30">
@@ -316,6 +321,22 @@
         return matchText && matchBtn;
       });
       renderDocs(filtered);
+    }
+
+    // ===== วันที่ พ.ศ. (โชว์อย่างเดียว — ในชีตยังเก็บ ค.ศ. เพราะสูตรวันคงเหลือใช้ TODAY()) =====
+    const TH_MONTH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    function toBE(iso) {
+      if (!iso) return '';
+      const p = String(iso).split('-');
+      if (p.length !== 3) return String(iso);
+      return Number(p[2]) + ' ' + TH_MONTH[Number(p[1]) - 1] + ' ' + (Number(p[0]) + 543);
+    }
+    function echoBE(inputId, outId) {
+      const v = document.getElementById(inputId).value;
+      const box = document.getElementById(outId);
+      if (!v) { box.classList.remove('show'); box.innerHTML = ''; return; }
+      box.innerHTML = '<em>ตรงกับ</em> ' + toBE(v) + ' <em>(พ.ศ.)</em>';
+      box.classList.add('show');
     }
 
     // ===== สลับมุมมอง: การ์ด / รายการ / ตาราง =====
@@ -615,7 +636,8 @@
       document.getElementById('modalDocName').innerText = docName;
       document.getElementById('processSelect').value = (currentProcess === 'กำลังใช้งาน') ? 'รอดำเนินการ' : currentProcess;
     
-      document.getElementById('newIssueDate').value = ""; 
+      document.getElementById('newIssueDate').value = "";
+      echoBE('newIssueDate','issueBE'); echoBE('newExpiryDate','expiryBE');
       document.getElementById('newExpiryDate').value = "";
       document.getElementById('newAlertDays').value = alertDays || "";
       document.getElementById('alertToggle').value = "ON";
