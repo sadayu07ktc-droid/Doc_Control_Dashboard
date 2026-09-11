@@ -85,7 +85,26 @@
     .file-upload-box input[type="file"] { display: none; }
 
     #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-gradient); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; color: white; }
-    .loader { border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid white; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+    #loading { transition: opacity .35s; }
+    #loading.out { opacity: 0; pointer-events: none; }
+
+    /* ===== ตัวโหลด: แผ่นเอกสารร่อนมาเรียงเป็นตั้ง ===== */
+    .doc-stack { position: relative; width: 78px; height: 88px; margin-bottom: 18px; }
+    .doc-stack i { position: absolute; left: 13px; top: 11px; width: 52px; height: 66px; border-radius: 5px; background: rgba(255,255,255,.95); box-shadow: 0 4px 10px rgba(0,0,0,.2); animation: docFly 2.1s ease-in-out infinite; }
+    .doc-stack i:nth-child(2) { animation-delay: .35s; }
+    .doc-stack i:nth-child(3) { animation-delay: .7s; }
+    @keyframes docFly {
+      0%   { transform: translate(26px,-22px) rotate(12deg); opacity: 0; }
+      22%  { opacity: 1; }
+      45%, 100% { transform: translate(0,0) rotate(0); opacity: 1; }
+    }
+    .loadtext { margin: 0; font-size: 14px; }
+    .loadtext::after { content: ''; display: inline-block; width: 14px; text-align: left; animation: dots 1.2s steps(4,end) infinite; }
+    @keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
+    @media (prefers-reduced-motion: reduce) {
+      .doc-stack i, .loadtext::after { animation: none; }
+      .doc-stack i { opacity: 1; transform: none; }
+    }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
     /* ===== ปุ่มสลับมุมมอง ===== */
@@ -139,7 +158,10 @@
 </head>
 <body>
 
-  <div id="loading"><div class="loader" id="spinner"></div><p id="loadingText">กำลังโหลดแดชบอร์ดเอกสาร...</p></div>
+  <div id="loading" role="status" aria-live="polite" aria-label="กำลังโหลดแดชบอร์ดเอกสาร">
+    <div class="doc-stack" id="spinner" aria-hidden="true"><i></i><i></i><i></i></div>
+    <p id="loadingText" class="loadtext">กำลังโหลดแดชบอร์ดเอกสาร</p>
+  </div>
 
   <div class="header-section">
     <h2 style="margin:0;display:flex;align-items:center;justify-content:center;gap:9px;"><svg class="li" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg> แดชบอร์ดเอกสาร</h2>
@@ -285,7 +307,7 @@
           updateCounters();
           renderDocs(allDocs);
           
-          document.getElementById('loading').style.display = 'none';
+          hideLoader();
           document.getElementById('userProfile').style.display = 'flex';
           document.getElementById('searchContainer').style.display = 'block';
           document.getElementById('summaryArea').style.display = 'flex';
@@ -337,6 +359,27 @@
       });
       renderDocs(filtered);
     }
+
+    // ===== ฉากโหลด: จางหาย ไม่ใช่หายวับ + กันค้างถ้า API ล่ม =====
+    function hideLoader() {
+      const el = document.getElementById('loading');
+      if (!el || el.classList.contains('out')) return;
+      el.classList.add('out');
+      setTimeout(() => { el.style.display = 'none'; }, 400);
+    }
+    function showLoader() {
+      const el = document.getElementById('loading');
+      if (!el) return;
+      el.style.display = 'flex';
+      void el.offsetWidth;              // บังคับให้เบราว์เซอร์คำนวณใหม่ ไม่งั้น transition ไม่ทำงาน
+      el.classList.remove('out');
+    }
+    setTimeout(function () {            // 20 วิแล้วยังไม่มา = ปล่อยผู้ใช้ออกจากฉากโหลด
+      const el = document.getElementById('loading');
+      if (el && el.style.display !== 'none' && !el.classList.contains('out')) {
+        showError('โหลดข้อมูลนานผิดปกติ');
+      }
+    }, 20000);
 
     // ===== ปุ่มลอย (FAB): ไปหน้าบันทึกเอกสารใหม่ =====
     const NEW_DOC_URL = "https://liff.line.me/2010379470-zXEdvOrD";
@@ -732,7 +775,7 @@ function sendToGAS(process, issue, expiry, alertDays, alertToggle, b64, fName, f
         text: 'ข้อมูลของคุณถูกบันทึกเรียบร้อยแล้ว',
         confirmButtonColor: '#6200EA' 
       }).then(() => {
-        document.getElementById('loading').style.display = 'flex';
+        showLoader();
         liff.getProfile().then(p => fetchDashboard(p.userId)); 
       });
     }
