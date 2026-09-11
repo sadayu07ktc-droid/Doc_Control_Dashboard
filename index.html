@@ -137,8 +137,9 @@
 
     /* ===== FAB: ปุ่มลอยบันทึกเอกสารใหม่ ===== */
     @keyframes fabIn { from { opacity: 0; transform: scale(.5) translateY(14px); } to { opacity: 1; transform: none; } }
-    .fab { position: fixed; right: 20px; bottom: 20px; z-index: 1500; width: 58px; height: 58px; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(135deg, #6200EA, #FF007F); box-shadow: 0 10px 24px rgba(98,0,234,.42); transition: transform .2s cubic-bezier(.34,1.4,.5,1), box-shadow .2s; animation: fabIn .4s cubic-bezier(.2,.9,.3,1.3) .3s backwards; }
-    .fab:hover { transform: translateY(-3px) scale(1.06) rotate(90deg); box-shadow: 0 14px 30px rgba(255,0,127,.45); }
+    /* พื้นขาว ไอคอนม่วง — พื้นหลังหน้านี้ไล่จากม่วงไปชมพู ปุ่มไล่สีจะกลืนไปกับพื้นตรงช่วงล่าง */
+    .fab { position: fixed; right: 20px; bottom: 20px; z-index: 1500; width: 58px; height: 58px; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--primary); background: #fff; box-shadow: 0 8px 22px rgba(0,0,0,.28), 0 2px 6px rgba(0,0,0,.16); transition: transform .2s cubic-bezier(.34,1.4,.5,1), box-shadow .2s, color .2s; animation: fabIn .4s cubic-bezier(.2,.9,.3,1.3) .3s backwards; }
+    .fab:hover { transform: translateY(-3px) scale(1.06) rotate(90deg); color: var(--secondary); box-shadow: 0 14px 30px rgba(0,0,0,.34), 0 2px 6px rgba(0,0,0,.18); }
     .fab:active { transform: scale(.93); }
     .fab svg { display: block; }
     @supports (padding: env(safe-area-inset-bottom)) {
