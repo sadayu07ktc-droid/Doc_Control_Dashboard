@@ -67,6 +67,31 @@
     .bar button.on[data-t="สมัครใจ"]{ color:#5B21B6; }
     .bar button.on[data-t="พรบ."]{ color:#0E6A86; }
 
+    /* แถบเตือนรถที่ขาดกรมธรรม์ */
+    .gap-bar{ display:none; align-items:center; gap:11px; background:#fff; border-radius:16px; padding:13px 15px;
+              margin-bottom:14px; box-shadow:0 6px 14px rgba(0,0,0,.09); border-left:6px solid var(--warn); cursor:pointer;
+              transition:.2s; }
+    .gap-bar.show{ display:flex; }
+    .gap-bar:hover{ transform:translateY(-2px); box-shadow:0 10px 20px rgba(0,0,0,.13); }
+    .gap-ic{ width:34px; height:34px; border-radius:11px; background:#FFF3E0; color:#E65100; flex:none;
+             display:flex; align-items:center; justify-content:center; }
+    .gap-tx{ flex:1; min-width:0; }
+    .gap-tx b{ display:block; font-size:13.5px; font-weight:600; color:var(--text-main); }
+    .gap-tx small{ display:block; font-size:11.5px; color:#888; font-weight:300; margin-top:2px; }
+    .gap-n{ font-size:20px; font-weight:600; color:var(--warn); flex:none; }
+
+    .mtab{ display:flex; gap:6px; background:#F4F1F9; border-radius:13px; padding:4px; margin:4px 0 10px; }
+    .mtab button{ flex:1; border:none; border-radius:10px; background:transparent; color:var(--text-muted);
+                  font-family:'Prompt'; font-size:12.5px; font-weight:500; padding:9px 6px; cursor:pointer; transition:.2s; }
+    .mtab button.on{ background:#fff; color:var(--primary); box-shadow:0 2px 6px rgba(98,0,234,.12); }
+    .mrow{ display:flex; align-items:center; gap:11px; padding:11px 13px; border-bottom:1px solid #F3EEFA; }
+    .mrow:last-child{ border-bottom:none; }
+    .mrow .mm{ flex:1; min-width:0; }
+    .mrow .mm b{ display:block; font-size:13.5px; font-weight:500; }
+    .mrow .mm small{ display:block; font-size:11.5px; color:#999; font-weight:300; margin-top:2px; }
+    .mrow .mt2{ font-size:11.5px; text-align:right; flex:none; color:#888; }
+    .mbadge{ font-size:11px; font-weight:500; padding:3px 10px; border-radius:20px; background:#FFF3E0; color:#E65100; flex:none; }
+
     .glist{ display:flex; flex-direction:column; gap:13px; }
     .gcard{ background:#fff; border-radius:18px; padding:16px 17px; box-shadow:0 8px 15px rgba(0,0,0,.08);
             border-left:8px solid #DDD; cursor:pointer; transition:.22s; }
@@ -194,6 +219,15 @@
       </button>
     </div>
 
+    <div class="gap-bar" id="gapBar" onclick="openMissing()">
+      <span class="gap-ic">
+        <svg class="li" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </span>
+      <div class="gap-tx"><b>รถที่มีกรมธรรม์ไม่ครบ</b><small id="gapSub">กำลังตรวจ…</small></div>
+      <span class="gap-n" id="gapN">–</span>
+      <svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+
     <div class="glist" id="groups"></div>
   </div>
 
@@ -214,7 +248,7 @@
   const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxkHcKCsM853RD225LZ7wUnxnBZF1D5HoEXnJm7FaLBY8h12oppFDkYmERoQwoTs9cf6w/exec";
 
   let GROUPS = [], TYPE = '', TOTAL = 0, CFG = null, UID = '', VIEW = 'all';
-  let ALL_ROWS = [], Q = '';                 // รายการกรมธรรม์ทั้งหมด ไว้ค้นหาฝั่งหน้าเว็บ (ไม่ต้องยิง API ทุกตัวอักษร)
+  let ALL_ROWS = [], Q = '', MISSING = null, MTAB = 'c';   // c = ขาด พรบ. · v = ขาดประกันภัย                 // รายการกรมธรรม์ทั้งหมด ไว้ค้นหาฝั่งหน้าเว็บ (ไม่ต้องยิง API ทุกตัวอักษร)
 
   /** ประเภท -> รหัสสี: v = ประกันภัย (ม่วง) · c = พรบ. (ฟ้า) */
   function tcode(t){ return String(t) === 'พรบ.' ? 'c' : 'v'; }
@@ -248,9 +282,11 @@
   };
 
   function boot(){
-    Promise.all([ api('ins_groups'), api('ins_config'), api('ins_list') ]).then(([g, c, l])=>{
+    Promise.all([ api('ins_groups'), api('ins_config'), api('ins_list'), api('ins_missing') ]).then(([g, c, l, m])=>{
       GROUPS = g.groups || []; TOTAL = g.total_policies || 0; CFG = (c && c.config) || null;
       ALL_ROWS = (l && l.rows) || [];
+      MISSING = (m && m.status === 'success') ? m : null;
+      renderGapBar();
       render(); hideLoad();
       const want = new URLSearchParams(location.search).get('g');   // ลิงก์จากการ์ด LINE
       if(want) setTimeout(()=>openGroup(want), 350);
@@ -348,6 +384,74 @@
     if(v === 'report'){ exportReport(); return; }
     VIEW = (VIEW === v && v !== 'all') ? 'all' : v;   // กดซ้ำ = ยกเลิกตัวกรอง
     render();
+  }
+
+  function renderGapBar(){
+    const bar = document.getElementById('gapBar');
+    if(!MISSING){ bar.classList.remove('show'); return; }
+    const n = MISSING.count_missing_compulsory + MISSING.count_missing_voluntary;
+    if(!n){ bar.classList.remove('show'); return; }
+    document.getElementById('gapN').textContent = n;
+    document.getElementById('gapSub').textContent =
+      'ขาด พรบ. ' + MISSING.count_missing_compulsory + ' คัน · ขาดประกันภัย ' + MISSING.count_missing_voluntary + ' คัน'
+      + ' · จากรถทั้งหมด ' + MISSING.total_vehicles + ' คัน';
+    bar.classList.add('show');
+  }
+
+  function openMissing(){
+    if(!MISSING) return;
+    document.getElementById('sheetTitle').textContent = 'รถที่มีกรมธรรม์ไม่ครบ';
+    document.getElementById('sheet').classList.add('open');
+    CUR_GROUP = null;
+    renderMissing();
+  }
+
+  function setMTab(t){ MTAB = t; renderMissing(); }
+
+  function renderMissing(){
+    const m = MISSING;
+    const list = MTAB === 'c' ? m.missing_compulsory : m.missing_voluntary;
+    const html = '<div class="mtab">'
+      + '<button class="' + (MTAB === 'c' ? 'on' : '') + '" onclick="setMTab(\'c\')">ขาด พรบ. (' + m.count_missing_compulsory + ')</button>'
+      + '<button class="' + (MTAB === 'v' ? 'on' : '') + '" onclick="setMTab(\'v\')">ขาดประกันภัย (' + m.count_missing_voluntary + ')</button>'
+      + '</div>'
+      + '<div style="font-size:11.5px;color:#999;font-weight:300;padding:0 4px 8px">'
+      + 'เทียบจากเลขตัวถัง · รถทั้งหมด ' + m.total_vehicles + ' คัน · มีครบทั้งสองอย่าง ' + m.complete + ' คัน</div>'
+      + (list.length
+          ? list.map(mrowHtml).join('')
+          : '<div class="empty">ไม่มีรถที่ขาดในกลุ่มนี้</div>')
+      + '<div style="padding:14px 4px 4px">'
+      + '<button class="b-file" style="width:100%;justify-content:center;border:none;border-radius:11px;padding:11px;'
+      + 'font-family:Prompt;font-size:12.5px;font-weight:500;cursor:pointer" onclick="exportMissing()">'
+      + ICO.up + ' ออกรายงานรถที่ขาดกรมธรรม์</button></div>';
+    document.getElementById('sheetBody').innerHTML = html;
+  }
+
+  function mrowHtml(c){
+    return '<div class="mrow">'
+      + '<div class="mm"><b>' + esc(c.plate || '(ยังไม่มีทะเบียน)') + '</b>'
+      + '<small>' + esc([c.brand, c.model].filter(Boolean).join(' ') || 'ไม่ระบุรุ่น')
+      + (c.year ? (' · ปี ' + esc(c.year)) : '') + ' · ' + esc(c.chassis) + '</small></div>'
+      + '<div class="mt2">' + esc(typeLabel(c.ref_type)) + ' ถึง<br>' + esc(c.ref_end_label) + '</div>'
+      + '<span class="mbadge">ขาด ' + esc(typeLabel(c.missing)) + '</span>'
+      + '</div>';
+  }
+
+  function exportMissing(){
+    const m = MISSING;
+    const head = ['ขาดอะไร','ทะเบียน','จังหวัด','ยี่ห้อ','รุ่น','ปีรถ','เลขตัวถัง','ประเภทตัวถัง',
+                  'กรมธรรม์ที่มี','เล่มอ้างอิง','คุ้มครองถึง'];
+    const mk = (arr) => arr.map(c => [typeLabel(c.missing), c.plate, c.province, c.brand, c.model, c.year,
+                  c.chassis, c.body_type, c.has.map(typeLabel).join(' + '), c.ref_policy, c.ref_end]);
+    const body = mk(m.missing_compulsory).concat(mk(m.missing_voluntary));
+    const html = '<meta charset="utf-8"><table border="1"><tr>' + head.map(h=>'<th>'+h+'</th>').join('')
+      + '</tr>' + body.map(r=>'<tr>' + r.map(c=>'<td>'+esc(c)+'</td>').join('') + '</tr>').join('') + '</table>';
+    const blob = new Blob(['\ufeff' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'รถที่ขาดกรมธรรม์_' + new Date().toISOString().slice(0,10) + '.xls';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    Swal.fire({ title:'ดาวน์โหลดแล้ว', html: body.length + ' คัน', icon:'success', confirmButtonColor:'#6200EA' });
   }
 
   let QT = null;
