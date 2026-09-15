@@ -472,6 +472,60 @@
     check: '<svg class="li" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
   };
 
+  // ===== อ่านข้อมูลจากไฟล์กรมธรรม์เอง (ไม่ต้อง OCR — PDF ของ MSIG มีข้อความฝังอยู่) =====
+  let PDFJS = null;
+  function loadPdfJs(){
+    if(PDFJS) return Promise.resolve(PDFJS);
+    return new Promise((res, rej) => {
+      const sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      sc.onload = () => {
+        PDFJS = window.pdfjsLib;
+        PDFJS.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        res(PDFJS);
+      };
+      sc.onerror = () => rej(new Error('โหลดตัวอ่าน PDF ไม่ได้'));
+      document.head.appendChild(sc);
+    });
+  }
+
+  function addYear(iso, n){
+    const p = String(iso).split('-').map(Number);
+    return new Date(Date.UTC(p[0] + n, p[1] - 1, p[2])).toISOString().slice(0, 10);
+  }
+
+  /** จุดยึด: 'MSIG 78510907-260930' = เลขกรมธรรม์ + วันเริ่มคุ้มครอง YYMMDD (พรบ. คุ้มครอง 1 ปีพอดี) */
+  function parsePolicyText(txt){
+    const out = { policy_no:'', start_date:'', end_date:'', chassis:'', premium:'' };
+    const m = txt.match(/MSIG\s+(\d{6,12})-(\d{2})(\d{2})(\d{2})\b/);
+    if(m){
+      out.policy_no = m[1];
+      out.start_date = '20' + m[2] + '-' + m[3] + '-' + m[4];
+      out.end_date = addYear(out.start_date, 1);
+    }
+    const vin = (txt.match(/\b(?=[A-Z0-9]*[A-Z])(?=[A-Z0-9]*\d)[A-Z0-9]{15,19}\b/g) || [])
+      .filter(v => !/^GENLINK|^CMIS|^WRGL|^SWGL/.test(v));
+    if(vin.length) out.chassis = vin[0];
+    const money = txt.match(/\b\d{1,3}(?:,\d{3})*\.\d{2}\b/g) || [];
+    if(money.length) out.premium = money[money.length - 1];
+    return out;
+  }
+
+  async function readPolicyPdf(file){
+    if(!/pdf$/i.test(file.type) && !/\.pdf$/i.test(file.name)) return null;
+    try{
+      const lib = await loadPdfJs();
+      const buf = await file.arrayBuffer();
+      const doc = await lib.getDocument({ data: new Uint8Array(buf) }).promise;
+      const page = await doc.getPage(1);
+      const tc = await page.getTextContent();
+      const txt = tc.items.map(i => i.str).join(' ').replace(/\s+/g, ' ').trim();
+      const info = parsePolicyText(txt);
+      return info.policy_no && info.end_date ? info : null;
+    }catch(e){ return null; }       // อ่านไม่ออกก็ไม่เป็นไร ให้กรอกเองได้
+  }
+
   /** เลือกไฟล์จากเครื่อง แล้วอัปเข้า Drive ผูกกับกรมธรรม์ใบนี้ */
   function pickFile(id, plate){
     const inp = document.createElement('input');
@@ -482,22 +536,59 @@
       if(file.size > 8 * 1024 * 1024){
         Swal.fire('ไฟล์ใหญ่เกินไป', 'ขนาดไฟล์เกิน 8MB กรุณาเลือกไฟล์ที่เล็กลง', 'warning'); return;
       }
+      Swal.fire({ title:'กำลังอ่านเอกสาร…', html: esc(file.name), allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+      const info = await readPolicyPdf(file);
+
+      let newPol = '', newEnd = '';
+      if(info){
+        // อ่านได้ -> ให้ยืนยัน/แก้ไขก่อนบันทึก ไม่บันทึกเงียบๆ เผื่ออ่านผิด
+        const c = await Swal.fire({
+          title: 'อ่านข้อมูลจากเอกสารได้',
+          html: '<div style="text-align:left;font-size:13px;line-height:1.9">'
+              + '<b>เลขกรมธรรม์</b> ' + esc(info.policy_no) + '<br>'
+              + '<b>คุ้มครอง</b> ' + esc(beDate(info.start_date)) + ' – <span style="color:#00C853">' + esc(beDate(info.end_date)) + '</span><br>'
+              + (info.chassis ? ('<b>เลขตัวถัง</b> ' + esc(info.chassis) + '<br>') : '')
+              + (info.premium ? ('<b>เบี้ยรวม</b> ' + esc(info.premium) + ' บาท') : '')
+              + '</div>',
+          icon: 'success', showCancelButton: true,
+          confirmButtonText: 'ถูกต้อง บันทึกเลย', cancelButtonText: 'ขอแก้ไขเอง',
+          confirmButtonColor: '#6200EA', cancelButtonColor: '#9E9E9E'
+        });
+        if(c.isConfirmed){ newPol = info.policy_no; newEnd = info.end_date; }
+        else {
+          const e1 = await Swal.fire({ title:'เลขกรมธรรม์ใหม่', input:'text', inputValue:info.policy_no,
+            showCancelButton:true, confirmButtonText:'ถัดไป', cancelButtonText:'ยกเลิก', confirmButtonColor:'#6200EA' });
+          if(!e1.isConfirmed) return;
+          const e2 = await Swal.fire({ title:'คุ้มครองถึงวันไหน', input:'date', inputValue:info.end_date,
+            showCancelButton:true, confirmButtonText:'บันทึก', cancelButtonText:'ยกเลิก', confirmButtonColor:'#6200EA' });
+          if(!e2.isConfirmed) return;
+          newPol = e1.value || ''; newEnd = e2.value || '';
+        }
+      }
+
       Swal.fire({ title:'กำลังอัปโหลด…', html: esc(file.name), allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
       const b64 = await new Promise((res, rej) => {
         const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file);
       });
       const r = await post({ action:'ins_attach', id:id, fileBase64:b64,
-                             fileName:file.name, fileMimeType:file.type || 'application/pdf' });
+                             fileName:file.name, fileMimeType:file.type || 'application/pdf',
+                             renewed_policy_no:newPol, renewed_end_date:newEnd });
       if(r.status === 'success'){
-        const go = await Swal.fire({
-          title:'แนบไฟล์แล้ว',
-          html: esc(plate) + ' · บันทึกว่าต่ออายุแล้ว<br><small style="color:#888">ระบุวันคุ้มครองใหม่ต่อเลยไหม จะได้นับวันหมดอายุรอบถัดไปถูก</small>',
-          icon:'success', showCancelButton:true,
-          confirmButtonText:'ระบุเลย', cancelButtonText:'ไว้ทีหลัง',
-          confirmButtonColor:'#6200EA', cancelButtonColor:'#9E9E9E'
-        });
-        refresh();
-        if(go.isConfirmed) markRenew(id, plate);
+        if(newEnd){
+          Swal.fire({ title:'เรียบร้อย', html: esc(plate) + ' · คุ้มครองถึง ' + esc(beDate(newEnd)),
+                      icon:'success', confirmButtonColor:'#6200EA' });
+          refresh();
+        } else {
+          const go = await Swal.fire({
+            title:'แนบไฟล์แล้ว',
+            html: esc(plate) + ' · บันทึกว่าต่ออายุแล้ว<br><small style="color:#888">อ่านวันคุ้มครองจากเอกสารไม่ได้ ระบุเองเลยไหม</small>',
+            icon:'success', showCancelButton:true,
+            confirmButtonText:'ระบุเลย', cancelButtonText:'ไว้ทีหลัง',
+            confirmButtonColor:'#6200EA', cancelButtonColor:'#9E9E9E'
+          });
+          refresh();
+          if(go.isConfirmed) markRenew(id, plate);
+        }
       } else {
         Swal.fire('แนบไฟล์ไม่สำเร็จ', r.message || 'ลองใหม่อีกครั้ง', 'error');
       }
