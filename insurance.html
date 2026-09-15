@@ -23,7 +23,13 @@
     .head p{ margin:4px 0 0; font-size:12px; opacity:.85; font-weight:300; }
 
     .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:15px; }
-    .kpi{ background:#fff; border-radius:16px; padding:13px 10px; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,.06); }
+    .kpi{ background:#fff; border-radius:16px; padding:13px 10px; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,.06);
+          cursor:pointer; border:2px solid transparent; transition:.2s; }
+    .kpi:hover{ transform:translateY(-3px); box-shadow:0 10px 20px rgba(0,0,0,.14); }
+    .kpi:active{ transform:scale(.97); }
+    .kpi.on{ border-color:var(--primary); box-shadow:0 8px 18px rgba(98,0,234,.3); }
+    .kpi.off{ opacity:.55; cursor:default; }
+    .kpi.off:hover{ transform:none; box-shadow:0 4px 10px rgba(0,0,0,.06); }
     .kpi span{ display:block; font-size:19px; font-weight:600; margin-top:4px; }
     .kpi label{ font-size:11px; color:#888; font-weight:400; }
 
@@ -39,6 +45,27 @@
                    font-family:'Prompt'; font-size:12.5px; font-weight:500; padding:11px 8px; cursor:pointer;
                    display:flex; align-items:center; justify-content:center; gap:7px; transition:.22s; }
     .tools button:hover{ transform:translateY(-2px); box-shadow:0 8px 16px rgba(0,0,0,.14); }
+
+    /* ช่องค้นหา */
+    .search{ position:relative; margin-bottom:14px; }
+    .search input{ width:100%; padding:13px 40px 13px 42px; border:none; border-radius:15px;
+                   font-family:'Prompt'; font-size:13.5px; outline:none; box-shadow:0 4px 10px rgba(0,0,0,.1); }
+    .search .sic{ position:absolute; left:15px; top:14px; color:#999; }
+    .search .sx{ position:absolute; right:12px; top:11px; width:26px; height:26px; border-radius:50%;
+                 display:none; align-items:center; justify-content:center; color:#999; cursor:pointer; }
+    .search .sx.show{ display:flex; } .search .sx:hover{ background:#F4F1F9; color:var(--secondary); }
+    .shint{ font-size:11.5px; color:rgba(255,255,255,.8); margin:-8px 0 12px 4px; font-weight:300; }
+
+    /* แยกสีตามประเภท: ประกันภัย = ม่วง · พรบ. = ฟ้าคราม */
+    .tbadge{ font-size:11px; font-weight:500; padding:3px 10px; border-radius:20px; flex:none; }
+    .t-v{ background:#EDE4FB; color:#5B21B6; }
+    .t-c{ background:#DCF0F7; color:#0E6A86; }
+    .gcard.type-v{ border-left-color:#7C3AED; }
+    .gcard.type-c{ border-left-color:#0E9FC4; }
+    .gcard.type-v .gtop b{ color:#5B21B6; }
+    .gcard.type-c .gtop b{ color:#0E6A86; }
+    .bar button.on[data-t="สมัครใจ"]{ color:#5B21B6; }
+    .bar button.on[data-t="พรบ."]{ color:#0E6A86; }
 
     .glist{ display:flex; flex-direction:column; gap:13px; }
     .gcard{ background:#fff; border-radius:18px; padding:16px 17px; box-shadow:0 8px 15px rgba(0,0,0,.08);
@@ -88,7 +115,22 @@
     .sheet-x{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
               color:#999; cursor:pointer; } .sheet-x:hover{ background:#F4F1F9; color:var(--secondary); }
     .sheet-bd{ overflow-y:auto; padding:8px 12px 20px; }
-    .prow{ display:flex; align-items:center; gap:11px; padding:11px 12px; border-bottom:1px solid #F7F4FB; }
+    .prow{ padding:13px 13px; border-bottom:1px solid #F3EEFA; }
+    .prow:hover{ background:#FCFBFE; }
+    .ptop{ display:flex; align-items:flex-start; gap:10px; }
+    .pgrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:7px 14px; margin-top:9px; }
+    .pf{ font-size:11.5px; line-height:1.45; }
+    .pf i{ font-style:normal; color:#aaa; display:block; font-size:10.5px; }
+    .pf b{ font-weight:500; color:#444; }
+    .pacts{ display:flex; gap:7px; margin-top:11px; flex-wrap:wrap; }
+    .pacts button, .pacts a{ border:none; border-radius:10px; font-family:'Prompt'; font-size:11.5px; font-weight:500;
+                             padding:8px 13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+                             text-decoration:none; transition:.18s; }
+    .b-file{ background:#F3E5F5; color:var(--primary); } .b-file:hover{ background:#EADCF7; }
+    .b-view{ background:#E3F2FD; color:#1976D2; } .b-view:hover{ background:#D2E9FC; }
+    .b-ok{ background:#E8F5E9; color:#2E7D32; } .b-ok:hover{ background:#D8EEDA; }
+    .b-done{ background:#F1F1F1; color:#9E9E9E; cursor:default; }
+    .prow-old{ display:flex; align-items:center; gap:11px; }
     .prow:last-child{ border-bottom:none; }
     .pdot{ width:9px; height:9px; border-radius:50%; flex:none; }
     .pmain{ flex:1; min-width:0; }
@@ -120,9 +162,17 @@
 
     <div class="cards" id="kpis"></div>
 
+    <div class="search">
+      <svg class="li sic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.6" y2="16.6"/></svg>
+      <input id="q" type="search" placeholder="ค้นหาทะเบียน · เลขกรมธรรม์ · ยี่ห้อ/รุ่นรถ" oninput="onSearch()">
+      <span class="sx" id="qx" onclick="clearSearch()">
+        <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </span>
+    </div>
+
     <div class="bar" id="typeBar">
       <button class="on" data-t="" onclick="setType('',this)">ทั้งหมด</button>
-      <button data-t="สมัครใจ" onclick="setType('สมัครใจ',this)">สมัครใจ</button>
+      <button data-t="สมัครใจ" onclick="setType('สมัครใจ',this)">ประกันภัย</button>
       <button data-t="พรบ." onclick="setType('พรบ.',this)">พรบ.</button>
     </div>
 
@@ -156,10 +206,16 @@
   const MY_LIFF_ID = "2010379470-vQxXyuA8";
   const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxkHcKCsM853RD225LZ7wUnxnBZF1D5HoEXnJm7FaLBY8h12oppFDkYmERoQwoTs9cf6w/exec";
 
-  let GROUPS = [], TYPE = '', TOTAL = 0, CFG = null, UID = '';
+  let GROUPS = [], TYPE = '', TOTAL = 0, CFG = null, UID = '', VIEW = 'all';
+  let ALL_ROWS = [], Q = '';                 // รายการกรมธรรม์ทั้งหมด ไว้ค้นหาฝั่งหน้าเว็บ (ไม่ต้องยิง API ทุกตัวอักษร)
+
+  /** ประเภท -> รหัสสี: v = ประกันภัย (ม่วง) · c = พรบ. (ฟ้า) */
+  function tcode(t){ return String(t) === 'พรบ.' ? 'c' : 'v'; }
 
   // ---------- helper ----------
   function esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  const TYPE_LABEL = { 'สมัครใจ': 'ประกันภัย' };
+  function typeLabel(t){ return TYPE_LABEL[t] || t; }
   function baht(n){ return Number(n||0).toLocaleString('th-TH',{maximumFractionDigits:0}); }
   function api(action, params){
     const q = new URLSearchParams(Object.assign({action:action}, params||{})).toString();
@@ -185,8 +241,9 @@
   };
 
   function boot(){
-    Promise.all([ api('ins_groups'), api('ins_config') ]).then(([g, c])=>{
+    Promise.all([ api('ins_groups'), api('ins_config'), api('ins_list') ]).then(([g, c, l])=>{
       GROUPS = g.groups || []; TOTAL = g.total_policies || 0; CFG = (c && c.config) || null;
+      ALL_ROWS = (l && l.rows) || [];
       render(); hideLoad();
       const want = new URLSearchParams(location.search).get('g');   // ลิงก์จากการ์ด LINE
       if(want) setTimeout(()=>openGroup(want), 350);
@@ -204,20 +261,50 @@
   }
 
   function render(){
-    const list = TYPE ? GROUPS.filter(g=>g.type===TYPE) : GROUPS;
+    // ตัวเลขบนการ์ดสรุปคิดจาก ทุกกลุ่มของประเภทที่เลือก เสมอ ไม่ใช่จากที่กรองอยู่
+    // ไม่งั้นกดการ์ดแล้วตัวเลขบนการ์ดเปลี่ยนตาม จะงงว่าอะไรคือยอดจริง
+    const all = TYPE ? GROUPS.filter(g=>g.type===TYPE) : GROUPS;
 
-    let pol=0, pend=0, soon=0, premium=0;
-    list.forEach(g=>{ pol+=g.count; pend+=g.pending; premium+=Number(g.premium_total)||0;
-                      if(!g.done && g.days_left<=60) soon+=g.pending; });
+    let pol=0, pend=0, soon=0, premium=0, pendGroups=0;
+    all.forEach(g=>{ pol+=g.count; pend+=g.pending; premium+=Number(g.premium_total)||0;
+                     if(!g.done) pendGroups++;
+                     if(!g.done && g.days_left<=60) soon+=g.pending; });
+
+    let list = all;
+    if(VIEW === 'pending') list = all.filter(g=>!g.done);
+    if(VIEW === 'soon')    list = all.filter(g=>!g.done && g.days_left<=60);
 
     document.getElementById('kpis').innerHTML =
-      kpi(pol,'กรมธรรม์','var(--primary)') +
-      kpi(list.length,'กลุ่มที่ต้องต่อ','var(--secondary)') +
-      kpi(soon,'ใกล้หมด ≤60 วัน', soon? 'var(--warn)':'#BDBDBD') +
-      kpi(baht(premium),'เบี้ยรวม (บาท)','var(--ok)');
+      kpi(pol, 'กรมธรรม์', 'var(--primary)', 'all', 'ดูทุกกลุ่ม') +
+      kpi(pendGroups, 'กลุ่มที่ต้องต่อ', 'var(--secondary)', 'pending', 'เฉพาะกลุ่มที่ยังต่อไม่ครบ') +
+      kpi(soon, 'ใกล้หมด ≤60 วัน', soon ? 'var(--warn)' : '#BDBDBD', 'soon', 'เฉพาะกลุ่มที่เหลือไม่เกิน 60 วัน') +
+      kpi(baht(premium), 'เบี้ยรวม (บาท)', 'var(--ok)', 'report', 'กดเพื่อออกรายงาน');
 
     const box = document.getElementById('groups');
-    if(!list.length){ box.innerHTML = '<div class="empty">ยังไม่มีข้อมูลกรมธรรม์ในกลุ่มนี้</div>'; return; }
+
+    // มีคำค้น -> โชว์ผลรายคัน แทนการ์ดกลุ่ม
+    if(Q){
+      const q = Q.toLowerCase();
+      const hit = ALL_ROWS.filter(p => (!TYPE || p.type === TYPE) && matches(p, q));
+      box.innerHTML = '<div class="gcard" style="cursor:default;border-left-color:#BDBDBD">'
+        + '<div class="gtop"><div class="gt"><b>ผลการค้นหา “' + esc(Q) + '”</b>'
+        + '<small>' + hit.length + ' รายการ' + (TYPE ? (' · เฉพาะ' + esc(typeLabel(TYPE))) : '') + '</small></div></div>'
+        + (hit.length ? '<div style="margin-top:6px">' + hit.slice(0, 80).map(rowHtml).join('') + '</div>'
+                      : '<div style="padding:22px 0;text-align:center;color:#999;font-size:13px;font-weight:300">ไม่พบรายการที่ตรงกับคำค้น</div>')
+        + (hit.length > 80 ? '<div style="text-align:center;font-size:11.5px;color:#aaa;padding-top:8px">แสดง 80 จาก ' + hit.length + ' รายการ · พิมพ์ให้เจาะจงขึ้นเพื่อดูครบ</div>' : '')
+        + '</div>';
+      return;
+    }
+
+    if(!list.length){
+      const msg = VIEW === 'soon'    ? 'ไม่มีกลุ่มไหนเหลือไม่เกิน 60 วัน<br><small>ยังไม่ต้องรีบครับ</small>'
+                : VIEW === 'pending' ? 'ทุกกลุ่มต่ออายุครบแล้ว'
+                : 'ยังไม่มีข้อมูลกรมธรรม์ในกลุ่มนี้';
+      box.innerHTML = '<div class="empty">' + msg
+        + (VIEW !== 'all' ? '<br><br><button class="pbtn" onclick="setView(\'all\')">ดูทุกกลุ่ม</button>' : '')
+        + '</div>';
+      return;
+    }
 
     box.innerHTML = list.map(g=>{
       const t = tone(g);
@@ -225,11 +312,12 @@
       const when  = g.same_day ? ('หมดพร้อมกัน ' + g.first_end_label)
                                : ('ทยอยหมด ' + g.first_end_label + ' – ' + g.last_end_label);
       const pct = g.count ? Math.round(g.renewed / g.count * 100) : 0;
-      return '<div class="gcard ' + t + '" onclick="openGroup(\'' + esc(g.group_key) + '\')">'
-        + '<div class="gtop"><div class="gt"><b>' + esc(g.type) + ' · ' + esc(g.month_label) + '</b>'
+      return '<div class="gcard ' + t + ' type-' + tcode(g.type) + '" onclick="openGroup(\'' + esc(g.group_key) + '\')">'
+        + '<div class="gtop"><div class="gt"><b>' + esc(typeLabel(g.type)) + ' · ' + esc(g.month_label) + '</b>'
         + '<small>' + esc(when) + '</small></div>'
         + '<div class="gcnt"><u>' + g.count + '</u><i>ฉบับ</i></div></div>'
         + '<div class="gmeta">'
+        + '<span class="tbadge t-' + tcode(g.type) + '">' + esc(typeLabel(g.type)) + '</span>'
         + '<span class="pill ' + (g.done?'g':(g.days_left<=30?'d':(g.days_left<=60?'w':''))) + '">' + dayTx + '</span>'
         + '<span class="pill">เบี้ย ' + baht(g.premium_total) + ' บาท</span>'
         + (g.done ? '<span class="pill g">ต่อครบแล้ว</span>'
@@ -240,26 +328,60 @@
     }).join('');
   }
 
-  function kpi(v,l,c){
-    return '<div class="kpi"><label>' + l + '</label><span style="color:' + c + '">' + v + '</span></div>';
+  function kpi(v, l, c, view, hint){
+    const dead = (view !== 'report' && view !== 'all' && Number(String(v).replace(/,/g,'')) === 0);
+    const cls = 'kpi' + (VIEW === view ? ' on' : '') + (dead ? ' off' : '');
+    const act = dead ? '' : ' onclick="setView(\'' + view + '\')"';
+    return '<div class="' + cls + '"' + act + ' title="' + hint + '">'
+      + '<label>' + l + '</label><span style="color:' + c + '">' + v + '</span></div>';
+  }
+
+  /** กดการ์ดสรุปเพื่อกรองรายการด้านล่าง — การ์ดเบี้ยรวมกดแล้วออกรายงานแทน */
+  function setView(v){
+    if(v === 'report'){ exportReport(); return; }
+    VIEW = (VIEW === v && v !== 'all') ? 'all' : v;   // กดซ้ำ = ยกเลิกตัวกรอง
+    render();
+  }
+
+  let QT = null;
+  function onSearch(){
+    Q = document.getElementById('q').value.trim();
+    document.getElementById('qx').classList.toggle('show', !!Q);
+    clearTimeout(QT); QT = setTimeout(render, 160);      // หน่วงนิดเดียว ไม่ให้วาดใหม่ทุกตัวอักษร
+  }
+  function clearSearch(){
+    document.getElementById('q').value = ''; Q = '';
+    document.getElementById('qx').classList.remove('show');
+    render();
+  }
+  function matches(p, q){
+    return String(p.plate||'').toLowerCase().indexOf(q) >= 0
+        || String(p.policy_no||'').toLowerCase().indexOf(q) >= 0
+        || String(p.brand||'').toLowerCase().indexOf(q) >= 0
+        || String(p.model||'').toLowerCase().indexOf(q) >= 0
+        || String(p.chassis||'').toLowerCase().indexOf(q) >= 0
+        || (String(p.brand||'') + ' ' + String(p.model||'')).toLowerCase().indexOf(q) >= 0;
   }
 
   function setType(t, el){
     TYPE = t;
+    VIEW = 'all';
     document.querySelectorAll('#typeBar button').forEach(b=>b.classList.remove('on'));
     el.classList.add('on');
     render();
   }
 
   // ---------- รายละเอียดกลุ่ม ----------
+  let CUR_GROUP = null;
   function openGroup(key){
+    CUR_GROUP = key;
     document.getElementById('sheetTitle').textContent = 'กำลังโหลด…';
     document.getElementById('sheetBody').innerHTML = '<div class="empty">กำลังดึงรายการ…</div>';
     document.getElementById('sheet').classList.add('open');
     api('ins_group', { group_key: key }).then(r=>{
       const g = r.group || {};
       document.getElementById('sheetTitle').textContent =
-        (g.type || '') + ' · ' + (g.month_label || '') + ' (' + (r.count || 0) + ' ฉบับ)';
+        typeLabel(g.type || '') + ' · ' + (g.month_label || '') + ' (' + (r.count || 0) + ' ฉบับ)';
       document.getElementById('sheetBody').innerHTML = (r.rows || []).map(rowHtml).join('')
         || '<div class="empty">ไม่มีรายการ</div>';
     }).catch(()=>{
@@ -270,18 +392,97 @@
   function rowHtml(p){
     const done = p.status === 'renewed';
     const col = done ? 'var(--ok)' : (p.days_left<=30 ? 'var(--danger)' : (p.days_left<=60 ? 'var(--warn)' : 'var(--primary)'));
+    const dayTx = p.days_left < 0 ? ('เลยกำหนด ' + Math.abs(p.days_left) + ' วัน') : ('เหลือ ' + p.days_left + ' วัน');
+
+    const f = (label, val) => val ? ('<div class="pf"><i>' + label + '</i><b>' + esc(val) + '</b></div>') : '';
+
     return '<div class="prow">'
-      + '<span class="pdot" style="background:' + col + '"></span>'
-      + '<div class="pmain"><b>' + esc(p.plate || '(ยังไม่มีทะเบียน)') + '</b>'
-      + '<small>' + esc(p.brand || '') + ' ' + esc(p.model || '') + ' · เล่ม ' + esc(p.policy_no) + '</small></div>'
-      + '<div class="pend"><u style="color:' + col + '">' + esc(p.end_label) + '</u>'
-      + '<i style="font-style:normal;color:#aaa">' + baht(p.premium_total) + ' บ.</i></div>'
-      + (done ? '<button class="pbtn done">ต่อแล้ว</button>'
-              : '<button class="pbtn" onclick="markRenew(\'' + esc(p.id) + '\',\'' + esc(p.plate) + '\')">ต่อแล้ว</button>')
+      + '<div class="ptop">'
+        + '<span class="pdot" style="background:' + col + ';margin-top:5px"></span>'
+        + '<div class="pmain"><b>' + esc(p.plate || '(ยังไม่มีทะเบียน)')
+        + ' <span class="tbadge t-' + tcode(p.type) + '">' + esc(typeLabel(p.type)) + '</span></b>'
+        + '<small>' + esc([p.brand, p.model].filter(Boolean).join(' ') || 'ไม่ระบุรุ่น')
+        + (p.year ? (' · ปี ' + esc(p.year)) : '') + '</small></div>'
+        + '<div class="pend"><u style="color:' + col + '">' + esc(p.end_label) + '</u>'
+        + '<i style="font-style:normal;color:#aaa">' + dayTx + '</i></div>'
+      + '</div>'
+
+      + '<div class="pgrid">'
+        + f('เลขกรมธรรม์', p.policy_no)
+        + f('เลขตัวถัง', p.chassis)
+        + f('ประเภทตัวถัง', p.body_type)
+        + f('จังหวัด', p.province)
+        + f('เริ่มคุ้มครอง', p.start_date ? beDate(p.start_date) : '')
+        + f('เบี้ยรวม', baht(p.premium_total) + ' บาท')
+        + (done ? f('เล่มใหม่', p.renewed_policy_no || '—') : '')
+        + (done && p.renewed_end_date ? f('คุ้มครองใหม่ถึง', beDate(p.renewed_end_date)) : '')
+      + '</div>'
+
+      + '<div class="pacts">'
+        + (p.file_url
+            ? '<a class="b-view" href="' + esc(p.file_url) + '" target="_blank" rel="noopener">'
+              + ICO.clip + ' ดูไฟล์กรมธรรม์</a>'
+            : '<button class="b-file" onclick="pickFile(\'' + esc(p.id) + '\',\'' + esc(p.plate) + '\')">'
+              + ICO.up + ' แนบไฟล์</button>')
+        + (done ? '<button class="b-done">' + ICO.check + ' ต่อแล้ว</button>'
+                : '<button class="b-ok" onclick="markRenew(\'' + esc(p.id) + '\',\'' + esc(p.plate) + '\')">'
+                  + ICO.check + ' บันทึกว่าต่อแล้ว</button>')
+      + '</div>'
       + '</div>';
   }
 
-  function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
+  /** 'yyyy-MM-dd' -> '8 ก.ย. 2569' */
+  const TH_M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  function beDate(iso){
+    const p = String(iso||'').split('-');
+    if(p.length !== 3) return String(iso||'');
+    return Number(p[2]) + ' ' + TH_M[Number(p[1])-1] + ' ' + (Number(p[0]) + 543);
+  }
+
+  const ICO = {
+    clip:  '<svg class="li" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 0 1 5.18 5.18l-9.2 9.19a1.83 1.83 0 0 1-2.59-2.59l8.49-8.48"/></svg>',
+    up:    '<svg class="li" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+    check: '<svg class="li" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+  };
+
+  /** เลือกไฟล์จากเครื่อง แล้วอัปเข้า Drive ผูกกับกรมธรรม์ใบนี้ */
+  function pickFile(id, plate){
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'application/pdf,image/*';
+    inp.onchange = async () => {
+      const file = inp.files && inp.files[0];
+      if(!file) return;
+      if(file.size > 8 * 1024 * 1024){
+        Swal.fire('ไฟล์ใหญ่เกินไป', 'ขนาดไฟล์เกิน 8MB กรุณาเลือกไฟล์ที่เล็กลง', 'warning'); return;
+      }
+      Swal.fire({ title:'กำลังอัปโหลด…', html: esc(file.name), allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+      const b64 = await new Promise((res, rej) => {
+        const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file);
+      });
+      const r = await post({ action:'ins_attach', id:id, fileBase64:b64,
+                             fileName:file.name, fileMimeType:file.type || 'application/pdf' });
+      if(r.status === 'success'){
+        Swal.fire({ title:'แนบไฟล์แล้ว', html: esc(plate) + ' · บันทึกว่าต่ออายุแล้ว', icon:'success',
+                    confirmButtonColor:'#6200EA' });
+        refresh();
+      } else {
+        Swal.fire('แนบไฟล์ไม่สำเร็จ', r.message || 'ลองใหม่อีกครั้ง', 'error');
+      }
+    };
+    inp.click();
+  }
+
+  /** โหลดข้อมูลใหม่แล้ววาดหน้า + เปิดกลุ่มเดิมค้างไว้ถ้าแผงยังเปิดอยู่ */
+  function refresh(){
+    const openKey = CUR_GROUP;
+    Promise.all([ api('ins_groups'), api('ins_list') ]).then(([g, l])=>{
+      GROUPS = g.groups || []; TOTAL = g.total_policies || 0; ALL_ROWS = (l && l.rows) || [];
+      render();
+      if(openKey && document.getElementById('sheet').classList.contains('open')) openGroup(openKey);
+    });
+  }
+
+  function closeSheet(){ CUR_GROUP = null; document.getElementById('sheet').classList.remove('open'); }
 
   // ---------- บันทึกว่าต่ออายุแล้ว ----------
   async function markRenew(id, plate){
@@ -304,7 +505,7 @@
     const r = await post({ action:'ins_renew', id:id, renewed_policy_no:f.value||'', renewed_end_date:d.value||'' });
     if(r.status === 'success'){
       Swal.fire({ title:'บันทึกแล้ว', icon:'success', timer:1400, showConfirmButton:false });
-      boot(); closeSheet();
+      refresh();
     } else {
       Swal.fire('บันทึกไม่สำเร็จ', r.message || 'ลองใหม่อีกครั้ง', 'error');
     }
@@ -350,7 +551,7 @@
       const blob = new Blob(['\ufeff' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'รายงานประกันภัยรถ_' + (TYPE || 'ทั้งหมด') + '_' + new Date().toISOString().slice(0,10) + '.xls';
+      a.download = 'รายงานประกันภัยรถ_' + (TYPE ? typeLabel(TYPE) : 'ทั้งหมด') + '_' + new Date().toISOString().slice(0,10) + '.xls';
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       Swal.fire({ title:'ดาวน์โหลดแล้ว', html: rows.length + ' รายการ · เบี้ยรวม ' + baht(r.summary.premium_total) + ' บาท',
                   icon:'success', confirmButtonColor:'#6200EA' });
