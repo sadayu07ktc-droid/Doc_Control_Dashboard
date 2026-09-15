@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>ประกันภัยรถ · แจ้งเตือนต่ออายุ</title>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    :root{ --primary:#6200EA; --secondary:#FF007F; --bg-gradient:linear-gradient(135deg,#6200EA 0%,#FF007F 100%);
+           --card-bg:rgba(255,255,255,.96); --text-main:#1A1A1A; --text-muted:#757575;
+           --ok:#00C853; --warn:#FF9100; --danger:#FF5252; }
+    *{ box-sizing:border-box; }
+    body{ font-family:'Prompt',sans-serif; background:var(--bg-gradient); color:var(--text-main); margin:0; padding:15px; min-height:100vh; }
+    .wrap{ max-width:900px; margin:0 auto; padding-bottom:40px; }
+    .li{ vertical-align:-2px; flex:none; }
+
+    @keyframes fadeInDown{ from{opacity:0;transform:translateY(-18px)} to{opacity:1;transform:none} }
+    .head{ text-align:center; color:#fff; margin:10px 0 18px; animation:fadeInDown .6s ease-out; }
+    .head h2{ margin:0; font-size:22px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:9px; }
+    .head p{ margin:4px 0 0; font-size:12px; opacity:.85; font-weight:300; }
+
+    .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:15px; }
+    .kpi{ background:#fff; border-radius:16px; padding:13px 10px; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,.06); }
+    .kpi span{ display:block; font-size:19px; font-weight:600; margin-top:4px; }
+    .kpi label{ font-size:11px; color:#888; font-weight:400; }
+
+    .bar{ display:flex; gap:6px; background:rgba(255,255,255,.22); padding:4px; border-radius:14px; margin-bottom:14px; }
+    .bar button{ flex:1; border:none; border-radius:11px; background:transparent; color:rgba(255,255,255,.88);
+                 font-family:'Prompt'; font-size:12.5px; font-weight:500; padding:9px 6px; cursor:pointer; transition:.25s;
+                 display:flex; align-items:center; justify-content:center; gap:6px; }
+    .bar button:hover{ background:rgba(255,255,255,.16); }
+    .bar button.on{ background:#fff; color:var(--primary); box-shadow:0 3px 8px rgba(0,0,0,.12); }
+
+    .tools{ display:flex; gap:8px; margin-bottom:15px; }
+    .tools button{ flex:1; border:none; border-radius:13px; background:rgba(255,255,255,.92); color:var(--primary);
+                   font-family:'Prompt'; font-size:12.5px; font-weight:500; padding:11px 8px; cursor:pointer;
+                   display:flex; align-items:center; justify-content:center; gap:7px; transition:.22s; }
+    .tools button:hover{ transform:translateY(-2px); box-shadow:0 8px 16px rgba(0,0,0,.14); }
+
+    .glist{ display:flex; flex-direction:column; gap:13px; }
+    .gcard{ background:#fff; border-radius:18px; padding:16px 17px; box-shadow:0 8px 15px rgba(0,0,0,.08);
+            border-left:8px solid #DDD; cursor:pointer; transition:.22s; }
+    .gcard:hover{ transform:translateY(-2px); box-shadow:0 12px 24px rgba(0,0,0,.13); }
+    .gcard.soon{ border-left-color:var(--warn); } .gcard.urgent{ border-left-color:var(--danger); }
+    .gcard.ok{ border-left-color:var(--ok); } .gcard.far{ border-left-color:var(--primary); }
+    .gtop{ display:flex; align-items:flex-start; gap:10px; }
+    .gtop .gt{ flex:1; min-width:0; }
+    .gtop b{ display:block; font-size:16px; font-weight:600; color:var(--primary); }
+    .gtop small{ display:block; font-size:12px; color:#888; font-weight:300; margin-top:2px; }
+    .gcnt{ text-align:right; flex:none; }
+    .gcnt u{ display:block; font-size:22px; font-weight:600; text-decoration:none; color:var(--text-main); line-height:1.1; }
+    .gcnt i{ font-style:normal; font-size:11px; color:#999; }
+    .gmeta{ display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; }
+    .pill{ font-size:11.5px; padding:4px 11px; border-radius:20px; background:#F4F1F9; color:#666; font-weight:400; }
+    .pill.d{ background:#FFEBEE; color:#C62828; } .pill.w{ background:#FFF3E0; color:#E65100; }
+    .pill.g{ background:#E8F5E9; color:#2E7D32; }
+    .prog{ height:5px; border-radius:4px; background:#EFEAF7; margin-top:11px; overflow:hidden; }
+    .prog i{ display:block; height:100%; background:var(--ok); border-radius:4px; transition:width .5s; }
+
+    .empty{ background:#fff; border-radius:18px; padding:40px 20px; text-align:center; color:#999; font-size:13px; font-weight:300; }
+
+    /* ฉากโหลด */
+    #load{ position:fixed; inset:0; background:var(--bg-gradient); display:flex; flex-direction:column;
+           align-items:center; justify-content:center; z-index:3000; color:#fff; transition:opacity .35s; }
+    #load.out{ opacity:0; pointer-events:none; }
+    .stack{ position:relative; width:78px; height:88px; margin-bottom:18px; }
+    .stack i{ position:absolute; left:13px; top:11px; width:52px; height:66px; border-radius:5px;
+              background:rgba(255,255,255,.95); box-shadow:0 4px 10px rgba(0,0,0,.2); animation:docFly 2.1s ease-in-out infinite; }
+    .stack i:nth-child(2){ animation-delay:.35s } .stack i:nth-child(3){ animation-delay:.7s }
+    @keyframes docFly{ 0%{transform:translate(26px,-22px) rotate(12deg);opacity:0} 22%{opacity:1} 45%,100%{transform:none;opacity:1} }
+    .ltx{ margin:0; font-size:14px; }
+    .ltx::after{ content:''; display:inline-block; width:14px; text-align:left; animation:dots 1.2s steps(4,end) infinite; }
+    @keyframes dots{ 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
+    @media (prefers-reduced-motion:reduce){ .stack i,.ltx::after{ animation:none } .stack i{ opacity:1;transform:none } }
+
+    /* แผงรายละเอียด */
+    .sheet{ position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:2000; display:none;
+            align-items:flex-end; justify-content:center; padding:0; }
+    .sheet.open{ display:flex; }
+    .sheet-in{ background:#fff; width:100%; max-width:900px; max-height:92vh; border-radius:22px 22px 0 0;
+               display:flex; flex-direction:column; animation:up .28s cubic-bezier(.2,.9,.3,1.05); }
+    @keyframes up{ from{transform:translateY(40px);opacity:0} to{transform:none;opacity:1} }
+    .sheet-hd{ padding:16px 18px 13px; border-bottom:1px solid #F0EAF8; display:flex; align-items:center; gap:10px; }
+    .sheet-hd b{ flex:1; font-size:16px; font-weight:600; color:var(--primary); }
+    .sheet-x{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+              color:#999; cursor:pointer; } .sheet-x:hover{ background:#F4F1F9; color:var(--secondary); }
+    .sheet-bd{ overflow-y:auto; padding:8px 12px 20px; }
+    .prow{ display:flex; align-items:center; gap:11px; padding:11px 12px; border-bottom:1px solid #F7F4FB; }
+    .prow:last-child{ border-bottom:none; }
+    .pdot{ width:9px; height:9px; border-radius:50%; flex:none; }
+    .pmain{ flex:1; min-width:0; }
+    .pmain b{ display:block; font-size:13.5px; font-weight:500; }
+    .pmain small{ display:block; font-size:11.5px; color:#999; font-weight:300; margin-top:2px; }
+    .pend{ font-size:12px; text-align:right; flex:none; }
+    .pend u{ display:block; text-decoration:none; font-weight:500; }
+    .pbtn{ flex:none; border:none; border-radius:10px; background:#F3E5F5; color:var(--primary);
+           font-family:'Prompt'; font-size:11.5px; font-weight:500; padding:7px 11px; cursor:pointer; }
+    .pbtn:hover{ background:#EADCF7; }
+    .pbtn.done{ background:#E8F5E9; color:#2E7D32; cursor:default; }
+  </style>
+</head>
+<body>
+
+  <div id="load" role="status" aria-live="polite" aria-label="กำลังโหลดข้อมูลประกันภัย">
+    <div class="stack" aria-hidden="true"><i></i><i></i><i></i></div>
+    <p class="ltx" id="loadTx">กำลังโหลดข้อมูลประกันภัย</p>
+  </div>
+
+  <div class="wrap">
+    <div class="head">
+      <h2>
+        <svg class="li" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5z"/><path d="m9 12 2 2 4-4"/></svg>
+        ประกันภัยรถ
+      </h2>
+      <p>สมัครใจ + พรบ. · จัดกลุ่มตามเดือนที่หมดอายุ เพื่อต่อพร้อมกัน</p>
+    </div>
+
+    <div class="cards" id="kpis"></div>
+
+    <div class="bar" id="typeBar">
+      <button class="on" data-t="" onclick="setType('',this)">ทั้งหมด</button>
+      <button data-t="สมัครใจ" onclick="setType('สมัครใจ',this)">สมัครใจ</button>
+      <button data-t="พรบ." onclick="setType('พรบ.',this)">พรบ.</button>
+    </div>
+
+    <div class="tools">
+      <button onclick="openSettings()">
+        <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        ตั้งค่าแจ้งเตือน
+      </button>
+      <button onclick="exportReport()">
+        <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        ออกรายงาน
+      </button>
+    </div>
+
+    <div class="glist" id="groups"></div>
+  </div>
+
+  <div class="sheet" id="sheet" onclick="if(event.target===this) closeSheet()">
+    <div class="sheet-in">
+      <div class="sheet-hd">
+        <b id="sheetTitle"></b>
+        <span class="sheet-x" onclick="closeSheet()">
+          <svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </span>
+      </div>
+      <div class="sheet-bd" id="sheetBody"></div>
+    </div>
+  </div>
+
+<script>
+  const MY_LIFF_ID = "2010379470-vQxXyuA8";
+  const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxkHcKCsM853RD225LZ7wUnxnBZF1D5HoEXnJm7FaLBY8h12oppFDkYmERoQwoTs9cf6w/exec";
+
+  let GROUPS = [], TYPE = '', TOTAL = 0, CFG = null, UID = '';
+
+  // ---------- helper ----------
+  function esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function baht(n){ return Number(n||0).toLocaleString('th-TH',{maximumFractionDigits:0}); }
+  function api(action, params){
+    const q = new URLSearchParams(Object.assign({action:action}, params||{})).toString();
+    return fetch(GAS_API_URL + '?' + q).then(r => r.json());
+  }
+  function post(body){
+    return fetch(GAS_API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+                                body: JSON.stringify(body) }).then(r => r.json());
+  }
+  function hideLoad(){ const el=document.getElementById('load'); if(!el||el.classList.contains('out')) return;
+    el.classList.add('out'); setTimeout(()=>{ el.style.display='none'; },400); }
+  setTimeout(()=>{ const el=document.getElementById('load');
+    if(el && el.style.display!=='none' && !el.classList.contains('out')){
+      document.getElementById('loadTx').textContent='โหลดข้อมูลนานผิดปกติ กรุณารีเฟรชหน้าใหม่'; } }, 20000);
+
+  // ---------- เริ่มทำงาน ----------
+  window.onload = function(){
+    liff.init({ liffId: MY_LIFF_ID }).then(()=>{
+      if(liff.isLoggedIn()){
+        liff.getProfile().then(p=>{ UID = p.userId; boot(); }).catch(()=>boot());
+      } else { liff.login(); }
+    }).catch(()=>boot());       // เปิดนอก LINE ก็ยังดูข้อมูลได้
+  };
+
+  function boot(){
+    Promise.all([ api('ins_groups'), api('ins_config') ]).then(([g, c])=>{
+      GROUPS = g.groups || []; TOTAL = g.total_policies || 0; CFG = (c && c.config) || null;
+      render(); hideLoad();
+      const want = new URLSearchParams(location.search).get('g');   // ลิงก์จากการ์ด LINE
+      if(want) setTimeout(()=>openGroup(want), 350);
+    }).catch(()=>{
+      document.getElementById('loadTx').textContent = 'ดึงข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+    });
+  }
+
+  // ---------- วาดหน้า ----------
+  function tone(g){
+    if(g.done) return 'ok';
+    if(g.days_left <= 30) return 'urgent';
+    if(g.days_left <= 60) return 'soon';
+    return 'far';
+  }
+
+  function render(){
+    const list = TYPE ? GROUPS.filter(g=>g.type===TYPE) : GROUPS;
+
+    let pol=0, pend=0, soon=0, premium=0;
+    list.forEach(g=>{ pol+=g.count; pend+=g.pending; premium+=Number(g.premium_total)||0;
+                      if(!g.done && g.days_left<=60) soon+=g.pending; });
+
+    document.getElementById('kpis').innerHTML =
+      kpi(pol,'กรมธรรม์','var(--primary)') +
+      kpi(list.length,'กลุ่มที่ต้องต่อ','var(--secondary)') +
+      kpi(soon,'ใกล้หมด ≤60 วัน', soon? 'var(--warn)':'#BDBDBD') +
+      kpi(baht(premium),'เบี้ยรวม (บาท)','var(--ok)');
+
+    const box = document.getElementById('groups');
+    if(!list.length){ box.innerHTML = '<div class="empty">ยังไม่มีข้อมูลกรมธรรม์ในกลุ่มนี้</div>'; return; }
+
+    box.innerHTML = list.map(g=>{
+      const t = tone(g);
+      const dayTx = g.days_left < 0 ? ('เลยกำหนด ' + Math.abs(g.days_left) + ' วัน') : ('เหลือ ' + g.days_left + ' วัน');
+      const when  = g.same_day ? ('หมดพร้อมกัน ' + g.first_end_label)
+                               : ('ทยอยหมด ' + g.first_end_label + ' – ' + g.last_end_label);
+      const pct = g.count ? Math.round(g.renewed / g.count * 100) : 0;
+      return '<div class="gcard ' + t + '" onclick="openGroup(\'' + esc(g.group_key) + '\')">'
+        + '<div class="gtop"><div class="gt"><b>' + esc(g.type) + ' · ' + esc(g.month_label) + '</b>'
+        + '<small>' + esc(when) + '</small></div>'
+        + '<div class="gcnt"><u>' + g.count + '</u><i>ฉบับ</i></div></div>'
+        + '<div class="gmeta">'
+        + '<span class="pill ' + (g.done?'g':(g.days_left<=30?'d':(g.days_left<=60?'w':''))) + '">' + dayTx + '</span>'
+        + '<span class="pill">เบี้ย ' + baht(g.premium_total) + ' บาท</span>'
+        + (g.done ? '<span class="pill g">ต่อครบแล้ว</span>'
+                  : '<span class="pill">ต่อแล้ว ' + g.renewed + '/' + g.count + '</span>')
+        + '</div>'
+        + '<div class="prog"><i style="width:' + pct + '%"></i></div>'
+        + '</div>';
+    }).join('');
+  }
+
+  function kpi(v,l,c){
+    return '<div class="kpi"><label>' + l + '</label><span style="color:' + c + '">' + v + '</span></div>';
+  }
+
+  function setType(t, el){
+    TYPE = t;
+    document.querySelectorAll('#typeBar button').forEach(b=>b.classList.remove('on'));
+    el.classList.add('on');
+    render();
+  }
+
+  // ---------- รายละเอียดกลุ่ม ----------
+  function openGroup(key){
+    document.getElementById('sheetTitle').textContent = 'กำลังโหลด…';
+    document.getElementById('sheetBody').innerHTML = '<div class="empty">กำลังดึงรายการ…</div>';
+    document.getElementById('sheet').classList.add('open');
+    api('ins_group', { group_key: key }).then(r=>{
+      const g = r.group || {};
+      document.getElementById('sheetTitle').textContent =
+        (g.type || '') + ' · ' + (g.month_label || '') + ' (' + (r.count || 0) + ' ฉบับ)';
+      document.getElementById('sheetBody').innerHTML = (r.rows || []).map(rowHtml).join('')
+        || '<div class="empty">ไม่มีรายการ</div>';
+    }).catch(()=>{
+      document.getElementById('sheetBody').innerHTML = '<div class="empty">ดึงรายการไม่สำเร็จ</div>';
+    });
+  }
+
+  function rowHtml(p){
+    const done = p.status === 'renewed';
+    const col = done ? 'var(--ok)' : (p.days_left<=30 ? 'var(--danger)' : (p.days_left<=60 ? 'var(--warn)' : 'var(--primary)'));
+    return '<div class="prow">'
+      + '<span class="pdot" style="background:' + col + '"></span>'
+      + '<div class="pmain"><b>' + esc(p.plate || '(ยังไม่มีทะเบียน)') + '</b>'
+      + '<small>' + esc(p.brand || '') + ' ' + esc(p.model || '') + ' · เล่ม ' + esc(p.policy_no) + '</small></div>'
+      + '<div class="pend"><u style="color:' + col + '">' + esc(p.end_label) + '</u>'
+      + '<i style="font-style:normal;color:#aaa">' + baht(p.premium_total) + ' บ.</i></div>'
+      + (done ? '<button class="pbtn done">ต่อแล้ว</button>'
+              : '<button class="pbtn" onclick="markRenew(\'' + esc(p.id) + '\',\'' + esc(p.plate) + '\')">ต่อแล้ว</button>')
+      + '</div>';
+  }
+
+  function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
+
+  // ---------- บันทึกว่าต่ออายุแล้ว ----------
+  async function markRenew(id, plate){
+    const f = await Swal.fire({
+      title: 'บันทึกการต่ออายุ',
+      html: '<div style="text-align:left;font-size:13px;color:#666">' + esc(plate) + '</div>',
+      input: 'text', inputLabel: 'เลขกรมธรรม์ใหม่ (เว้นว่างได้)', inputPlaceholder: 'เช่น 77920978',
+      html2: '', showCancelButton: true, confirmButtonText: 'ถัดไป', cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#6200EA', cancelButtonColor: '#9E9E9E'
+    });
+    if(!f.isConfirmed) return;
+    const d = await Swal.fire({
+      title: 'คุ้มครองถึงวันไหน', input: 'date', inputLabel: 'วันสิ้นสุดความคุ้มครองใหม่',
+      showCancelButton: true, confirmButtonText: 'บันทึก', cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#6200EA', cancelButtonColor: '#9E9E9E'
+    });
+    if(!d.isConfirmed) return;
+
+    Swal.fire({ title:'กำลังบันทึก…', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+    const r = await post({ action:'ins_renew', id:id, renewed_policy_no:f.value||'', renewed_end_date:d.value||'' });
+    if(r.status === 'success'){
+      Swal.fire({ title:'บันทึกแล้ว', icon:'success', timer:1400, showConfirmButton:false });
+      boot(); closeSheet();
+    } else {
+      Swal.fire('บันทึกไม่สำเร็จ', r.message || 'ลองใหม่อีกครั้ง', 'error');
+    }
+  }
+
+  // ---------- ตั้งค่าแจ้งเตือน ----------
+  async function openSettings(){
+    const cur = (CFG && CFG.lead_days || [60,30,7]).join(', ');
+    const r = await Swal.fire({
+      title: 'ตั้งค่าแจ้งเตือน',
+      input: 'text', inputValue: cur,
+      inputLabel: 'แจ้งเตือนล่วงหน้ากี่วัน (คั่นด้วยจุลภาค)',
+      inputPlaceholder: '60, 30, 7',
+      footer: 'ระบบจะเตือนเป็น "กลุ่ม" เมื่อใบที่หมดเร็วที่สุดในกลุ่มเหลือเวลาตรงกับที่ตั้งไว้',
+      showCancelButton: true, confirmButtonText: 'บันทึก', cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#6200EA', cancelButtonColor: '#9E9E9E'
+    });
+    if(!r.isConfirmed) return;
+    const days = String(r.value||'').split(/[,\s]+/).map(Number).filter(n=>n>0);
+    if(!days.length){ Swal.fire('ค่าไม่ถูกต้อง','ใส่จำนวนวันอย่างน้อยหนึ่งค่า เช่น 60, 30, 7','warning'); return; }
+    Swal.fire({ title:'กำลังบันทึก…', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+    const res = await post({ action:'ins_save_config', config: Object.assign({}, CFG||{}, { lead_days: days }) });
+    if(res.status === 'success'){
+      CFG = res.config;
+      Swal.fire({ title:'บันทึกแล้ว', html:'เตือนล่วงหน้า ' + CFG.lead_days.join(' / ') + ' วัน',
+                  icon:'success', confirmButtonColor:'#6200EA' });
+    } else Swal.fire('บันทึกไม่สำเร็จ', res.message || '', 'error');
+  }
+
+  // ---------- ออกรายงาน Excel ----------
+  function exportReport(){
+    Swal.fire({ title:'กำลังสร้างรายงาน…', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+    api('ins_report', TYPE ? { type: TYPE } : {}).then(r=>{
+      const rows = r.rows || [];
+      if(!rows.length){ Swal.fire('ไม่มีข้อมูล','ยังไม่มีกรมธรรม์ให้ออกรายงาน','info'); return; }
+      const head = ['ประเภท','เลขกรมธรรม์','ทะเบียน','จังหวัด','ยี่ห้อ','รุ่น','เลขตัวถัง','ปีรถ',
+                    'วันเริ่มคุ้มครอง','วันสิ้นสุด','เหลือ (วัน)','เบี้ยรวม','สถานะ','เล่มใหม่','คุ้มครองใหม่ถึง'];
+      const body = rows.map(p=>[p.type,p.policy_no,p.plate,p.province,p.brand,p.model,p.chassis,p.year,
+                    p.start_date,p.end_date,p.days_left,p.premium_total,
+                    p.status==='renewed'?'ต่อแล้ว':'ยังไม่ต่อ',p.renewed_policy_no,p.renewed_end_date]);
+      const html = '<meta charset="utf-8"><table border="1"><tr>' + head.map(h=>'<th>'+h+'</th>').join('')
+        + '</tr>' + body.map(r2=>'<tr>' + r2.map(c=>'<td>'+esc(c)+'</td>').join('') + '</tr>').join('') + '</table>';
+      const blob = new Blob(['\ufeff' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'รายงานประกันภัยรถ_' + (TYPE || 'ทั้งหมด') + '_' + new Date().toISOString().slice(0,10) + '.xls';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      Swal.fire({ title:'ดาวน์โหลดแล้ว', html: rows.length + ' รายการ · เบี้ยรวม ' + baht(r.summary.premium_total) + ' บาท',
+                  icon:'success', confirmButtonColor:'#6200EA' });
+    }).catch(()=> Swal.fire('ออกรายงานไม่สำเร็จ','ลองใหม่อีกครั้ง','error'));
+  }
+</script>
+</body>
+</html>
