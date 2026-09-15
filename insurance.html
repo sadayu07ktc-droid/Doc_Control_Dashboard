@@ -129,7 +129,14 @@
     .b-file{ background:#F3E5F5; color:var(--primary); } .b-file:hover{ background:#EADCF7; }
     .b-view{ background:#E3F2FD; color:#1976D2; } .b-view:hover{ background:#D2E9FC; }
     .b-ok{ background:#E8F5E9; color:#2E7D32; } .b-ok:hover{ background:#D8EEDA; }
-    .b-done{ background:#F1F1F1; color:#9E9E9E; cursor:default; }
+    .b-done{ background:#F1F1F1; color:#9E9E9E; } .b-done:hover{ background:#E8E8E8; color:#757575; }
+    .prow.done{ background:#F7FCF8; }
+    .pdone{ font-size:11px; font-weight:500; padding:3px 10px; border-radius:20px; background:#DCF5E3; color:#1B7A3D; }
+    .pold{ font-size:11px; color:#B0B0B0; text-decoration:line-through; display:block; }
+    .pnew{ font-weight:500; }
+    .pwarn{ display:flex; align-items:center; gap:7px; margin-top:10px; padding:8px 11px; border-radius:11px;
+            background:#FFF8E1; color:#8A6000; font-size:11.5px; }
+    .pwarn span{ flex:1; }
     .prow-old{ display:flex; align-items:center; gap:11px; }
     .prow:last-child{ border-bottom:none; }
     .pdot{ width:9px; height:9px; border-radius:50%; flex:none; }
@@ -396,15 +403,27 @@
 
     const f = (label, val) => val ? ('<div class="pf"><i>' + label + '</i><b>' + esc(val) + '</b></div>') : '';
 
-    return '<div class="prow">'
+    // ต่อแล้ว -> โชว์วันคุ้มครองใหม่เป็นตัวหลัก ขีดฆ่าวันเดิมไว้ให้เทียบ
+    const newEnd = done && p.renewed_end_date ? beDate(p.renewed_end_date) : '';
+    const rightCol = done
+      ? (newEnd
+          ? '<u class="pnew" style="color:var(--ok)">' + esc(newEnd) + '</u>'
+            + '<i style="font-style:normal;color:#aaa">คุ้มครองใหม่ถึง</i>'
+            + '<span class="pold">เดิม ' + esc(p.end_label) + '</span>'
+          : '<u class="pnew" style="color:var(--ok)">ต่ออายุแล้ว</u>'
+            + '<span class="pold">เดิม ' + esc(p.end_label) + '</span>')
+      : '<u style="color:' + col + '">' + esc(p.end_label) + '</u>'
+        + '<i style="font-style:normal;color:#aaa">' + dayTx + '</i>';
+
+    return '<div class="prow' + (done ? ' done' : '') + '">'
       + '<div class="ptop">'
         + '<span class="pdot" style="background:' + col + ';margin-top:5px"></span>'
         + '<div class="pmain"><b>' + esc(p.plate || '(ยังไม่มีทะเบียน)')
-        + ' <span class="tbadge t-' + tcode(p.type) + '">' + esc(typeLabel(p.type)) + '</span></b>'
+        + ' <span class="tbadge t-' + tcode(p.type) + '">' + esc(typeLabel(p.type)) + '</span>'
+        + (done ? ' <span class="pdone">ต่ออายุแล้ว</span>' : '') + '</b>'
         + '<small>' + esc([p.brand, p.model].filter(Boolean).join(' ') || 'ไม่ระบุรุ่น')
         + (p.year ? (' · ปี ' + esc(p.year)) : '') + '</small></div>'
-        + '<div class="pend"><u style="color:' + col + '">' + esc(p.end_label) + '</u>'
-        + '<i style="font-style:normal;color:#aaa">' + dayTx + '</i></div>'
+        + '<div class="pend">' + rightCol + '</div>'
       + '</div>'
 
       + '<div class="pgrid">'
@@ -418,15 +437,22 @@
         + (done && p.renewed_end_date ? f('คุ้มครองใหม่ถึง', beDate(p.renewed_end_date)) : '')
       + '</div>'
 
+      + (done && !p.renewed_end_date
+          ? '<div class="pwarn">' + ICO.warn
+            + '<span>แนบไฟล์แล้วแต่ยังไม่ได้ระบุวันคุ้มครองใหม่ ระบบจึงยังนับวันจากเล่มเดิมอยู่</span></div>'
+          : '')
+
       + '<div class="pacts">'
         + (p.file_url
             ? '<a class="b-view" href="' + esc(p.file_url) + '" target="_blank" rel="noopener">'
               + ICO.clip + ' ดูไฟล์กรมธรรม์</a>'
             : '<button class="b-file" onclick="pickFile(\'' + esc(p.id) + '\',\'' + esc(p.plate) + '\')">'
               + ICO.up + ' แนบไฟล์</button>')
-        + (done ? '<button class="b-done">' + ICO.check + ' ต่อแล้ว</button>'
-                : '<button class="b-ok" onclick="markRenew(\'' + esc(p.id) + '\',\'' + esc(p.plate) + '\')">'
-                  + ICO.check + ' บันทึกว่าต่อแล้ว</button>')
+        + (done
+            ? '<button class="' + (p.renewed_end_date ? 'b-done' : 'b-ok') + '" onclick="markRenew(\'' + esc(p.id) + '\',\'' + esc(p.plate) + '\')">'
+              + ICO.check + ' ' + (p.renewed_end_date ? 'แก้ไขข้อมูลต่ออายุ' : 'ระบุวันคุ้มครองใหม่') + '</button>'
+            : '<button class="b-ok" onclick="markRenew(\'' + esc(p.id) + '\',\'' + esc(p.plate) + '\')">'
+              + ICO.check + ' บันทึกว่าต่อแล้ว</button>')
       + '</div>'
       + '</div>';
   }
@@ -442,6 +468,7 @@
   const ICO = {
     clip:  '<svg class="li" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 0 1 5.18 5.18l-9.2 9.19a1.83 1.83 0 0 1-2.59-2.59l8.49-8.48"/></svg>',
     up:    '<svg class="li" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+    warn:  '<svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
     check: '<svg class="li" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
   };
 
@@ -462,9 +489,15 @@
       const r = await post({ action:'ins_attach', id:id, fileBase64:b64,
                              fileName:file.name, fileMimeType:file.type || 'application/pdf' });
       if(r.status === 'success'){
-        Swal.fire({ title:'แนบไฟล์แล้ว', html: esc(plate) + ' · บันทึกว่าต่ออายุแล้ว', icon:'success',
-                    confirmButtonColor:'#6200EA' });
+        const go = await Swal.fire({
+          title:'แนบไฟล์แล้ว',
+          html: esc(plate) + ' · บันทึกว่าต่ออายุแล้ว<br><small style="color:#888">ระบุวันคุ้มครองใหม่ต่อเลยไหม จะได้นับวันหมดอายุรอบถัดไปถูก</small>',
+          icon:'success', showCancelButton:true,
+          confirmButtonText:'ระบุเลย', cancelButtonText:'ไว้ทีหลัง',
+          confirmButtonColor:'#6200EA', cancelButtonColor:'#9E9E9E'
+        });
         refresh();
+        if(go.isConfirmed) markRenew(id, plate);
       } else {
         Swal.fire('แนบไฟล์ไม่สำเร็จ', r.message || 'ลองใหม่อีกครั้ง', 'error');
       }
