@@ -678,13 +678,19 @@
     document.getElementById('qx').classList.remove('show');
     render();
   }
+  /* ทะเบียนในระบบเก็บแบบมีเว้นวรรค (87 4909) แต่คนพิมพ์ติดกันหรือใส่ขีด
+     จึงตัดเว้นวรรค ขีด และจุด ออกจากทั้งสองฝั่งก่อนเทียบ */
+  function nrm(v){ return String(v==null?'':v).toLowerCase().replace(/[\s\-./]/g,''); }
   function matches(p, q){
-    return String(p.plate||'').toLowerCase().indexOf(q) >= 0
-        || String(p.policy_no||'').toLowerCase().indexOf(q) >= 0
-        || String(p.brand||'').toLowerCase().indexOf(q) >= 0
-        || String(p.model||'').toLowerCase().indexOf(q) >= 0
-        || String(p.chassis||'').toLowerCase().indexOf(q) >= 0
-        || (String(p.brand||'') + ' ' + String(p.model||'')).toLowerCase().indexOf(q) >= 0;
+    const nq = nrm(q);
+    if(!nq) return false;
+    return nrm(p.plate).indexOf(nq) >= 0
+        || nrm(p.policy_no).indexOf(nq) >= 0
+        || nrm(p.chassis).indexOf(nq) >= 0
+        || nrm(p.brand).indexOf(nq) >= 0
+        || nrm(p.model).indexOf(nq) >= 0
+        || nrm(String(p.brand||'') + String(p.model||'')).indexOf(nq) >= 0
+        || String(p.province||'').toLowerCase().indexOf(String(q).toLowerCase()) >= 0;
   }
 
   function setType(t, el){
