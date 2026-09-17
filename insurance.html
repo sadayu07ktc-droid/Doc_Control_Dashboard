@@ -798,8 +798,10 @@
   function openSweep(){
     const s = SWEEP;
     if(!s) return;
-    document.getElementById('swWhen').textContent = 'กวาดโฟลเดอร์แชร์เมื่อ ' + (s.at_label || s.at)
-      + ' · ไฟล์ทั้งหมด ' + s.files + ' ไฟล์';
+    document.getElementById('swTitle').textContent = s.dry ? 'ผลการทดลองกวาด (ยังไม่ได้บันทึก)' : 'ผลการรับไฟล์';
+    document.getElementById('swWhen').innerHTML = 'กวาดโฟลเดอร์แชร์เมื่อ ' + esc(s.at_label || s.at)
+      + ' · ไฟล์ทั้งหมด ' + s.files + ' ไฟล์'
+      + (s.dry ? '<br><b style="color:#E65100">รอบทดสอบ ไม่ได้แนบไฟล์หรือแก้ข้อมูลจริง</b>' : '');
     const nums = [
       ['เข้าระบบ', (s.added||0) + (s.renewed||0) + (s.attached||0), 'var(--primary)'],
       ['ต่ออายุ',  s.renewed||0,  '#00A040'],
@@ -840,6 +842,9 @@
   }
 
   function pendingAdds(){
+    // รอบทดสอบไม่ได้อัปไฟล์ไว้ ถ้าให้กดยืนยันจะได้แถวที่ไม่มีไฟล์แนบ
+    // และผิดคำสัญญาว่ารอบทดสอบไม่แตะข้อมูล จึงไม่ถามในรอบนั้น
+    if(SWEEP && SWEEP.dry) return [];
     return ((SWEEP && SWEEP.items) || []).filter(i => i.can_add && i.policy_no);
   }
 
@@ -997,10 +1002,10 @@
    * ผ่าน 45 วิ ค่อยโผล่ปุ่มให้ปิดหน้าต่างทิ้งได้ ตัวกวาดจะทำต่อเบื้องหลังอยู่ดี
    * และตั้งเพดานกันค้างไว้ 5 นาที เผื่อเครื่องออฟฟิศดับกลางคัน
    */
-  var SWL_T = null, SWL_CAP = null, SWL_SEC = 0, SWL_PROG = null, SWL_ABORT = false;
+  var SWL_T = null, SWL_CAP = null, SWL_SEC = 0, SWL_PROG = null, SWL_ABORT = false, SWL_LAST = null;
   function showSweepLoad(){
     const el = document.getElementById('swLoad'), x = document.getElementById('swLoadX');
-    SWL_SEC = 0; SWL_PROG = null; SWL_ABORT = false; x.hidden = true;
+    SWL_SEC = 0; SWL_PROG = null; SWL_LAST = null; SWL_ABORT = false; x.hidden = true;
     document.getElementById('swBar').className = 'swl-bar idle';
     document.getElementById('swPct').textContent = 'กำลังเริ่ม';
     el.classList.remove('out'); el.classList.add('on');
@@ -1030,14 +1035,18 @@
     const bar = document.getElementById('swBar');
     const pct = document.getElementById('swPct');
 
-    if(p && p.total){
-      const ratio = Math.min(1, p.done / p.total);
+    // พอกวาดจบ ระบบจะเคลียร์ความคืบหน้าทิ้ง ถ้าปล่อยให้ตกไปสาขาล่าง
+    // ตัวเลขจะค้างแต่ข้อความกลับไปเป็นตอนเริ่ม ดูขัดกัน จึงคาค่าล่าสุดไว้
+    if(p) SWL_LAST = p;
+    const cur = p || SWL_LAST;
+    if(cur && cur.total){
+      const ratio = Math.min(1, cur.done / cur.total);
       bar.className = 'swl-bar real';
       bar.querySelector('i').style.width = Math.round(ratio * 100) + '%';
-      pct.textContent = p.done + ' / ' + p.total + ' ไฟล์';
+      pct.textContent = cur.done + ' / ' + cur.total + ' ไฟล์';
       document.getElementById('swLoadTx').innerHTML =
         'กำลังกวาดโฟลเดอร์แชร์'
-        + '<small>' + (p.now ? esc(p.now) + ' · ' : '') + 'ผ่านไป ' + t + '</small>';
+        + '<small>' + (cur.now ? esc(cur.now) + ' · ' : '') + 'ผ่านไป ' + t + '</small>';
       return;
     }
     // ยังไม่ได้ยินความคืบหน้า แถบวิ่งไปมาไปก่อน
@@ -1409,6 +1418,11 @@
               + ICO.clip + ' ดูไฟล์กรมธรรม์</a>'
             : '<button class="b-file" onclick="pickFile(\'' + esc(p.id) + '\',\'' + esc(p.plate) + '\')">'
               + ICO.up + ' แนบไฟล์</button>')
+        // ใบเสร็จค่าเบี้ย (ไฟล์ -tax) เก็บแยกจากตัวกรมธรรม์ โชว์เมื่อมีเท่านั้น
+        + (p.receipt_url
+            ? '<a class="b-view" href="' + esc(p.receipt_url) + '" target="_blank" rel="noopener">'
+              + ICO.receipt + ' ใบเสร็จค่าเบี้ย</a>'
+            : '')
         + (done
             ? '<button class="' + (p.renewed_end_date ? 'b-done' : 'b-ok') + '" onclick="markRenew(\'' + esc(p.id) + '\',\'' + esc(p.plate) + '\')">'
               + ICO.check + ' ' + (p.renewed_end_date ? 'แก้ไขข้อมูลต่ออายุ' : 'ระบุวันคุ้มครองใหม่') + '</button>'
@@ -1428,6 +1442,7 @@
 
   const ICO = {
     clip:  '<svg class="li" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 0 1 5.18 5.18l-9.2 9.19a1.83 1.83 0 0 1-2.59-2.59l8.49-8.48"/></svg>',
+    receipt: '<svg class="li" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2.5-1.6L9 22l2.5-1.6L14 22l2.5-1.6L19 22V2l-2.5 1.6L14 2l-2.5 1.6L9 2 6.5 3.6z"/><line x1="8" y1="8" x2="15" y2="8"/><line x1="8" y1="12" x2="15" y2="12"/></svg>',
     up:    '<svg class="li" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
     warn:  '<svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
     check: '<svg class="li" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
