@@ -703,7 +703,7 @@
         + '<div class="gcnt"><u>' + g.count + '</u><i>ฉบับ</i></div></div>'
         + '<div class="gmeta">'
         + '<span class="tbadge t-' + tcode(g.type) + '">' + esc(typeLabel(g.type)) + '</span>'
-        + '<span class="pill ' + (g.done?'g':(g.days_left<=30?'d':(g.days_left<=60?'w':''))) + '">' + dayTx + '</span>'
+        + '<span class="pill ' + (g.days_left<=30?'d':(g.days_left<=60?'w':'g')) + '">' + dayTx + '</span>'
         + '<span class="pill">เบี้ย ' + baht(g.premium_total) + ' บาท</span>'
         + (g.done ? '<span class="pill g">ต่อครบแล้ว</span>'
                   : '<span class="pill">ต่อแล้ว ' + g.renewed + '/' + g.count + '</span>')
@@ -945,8 +945,9 @@
         return boot(1).then(()=> done('เครื่องในออฟฟิศไม่ได้เปิดรับคำสั่ง ดึงข้อมูลล่าสุดให้แทน', true));
       }
       toast('สั่งกวาดโฟลเดอร์แล้ว กำลังรอผล…');
-      return waitSweep(before, 24).then(changed=>
-        boot(1).then(()=> done(changed ? '' : 'กวาดเสร็จแล้วแต่ยังไม่มีไฟล์ใหม่')));
+      // ไฟล์เยอะ ๆ กวาดนานเป็นสิบนาทีได้ ถ้ารอไม่ไหวก็บอกว่ายังทำอยู่ ไม่ใช่บอกว่าไม่มีอะไร
+      return waitSweep(before, 36).then(changed=>
+        boot(1).then(()=> done(changed ? '' : 'ยังกวาดไม่เสร็จ กำลังทำอยู่เบื้องหลัง กดอัปเดตอีกครั้งได้ภายหลัง')));
     }).catch(()=>{
       boot(1).then(()=> done('เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง', true))
              .catch(()=> done('เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง', true));
@@ -1239,9 +1240,21 @@
     });
   }
 
+  /**
+   * สีตามจำนวนวันที่เหลือ 3 ระดับ
+   *   แดง  <= 30 วัน  ต้องรีบต่อแล้ว
+   *   เหลือง 31-60 วัน  เตรียมตัว
+   *   เขียว  > 60 วัน   ยังสบาย
+   */
+  function dayColor(days){
+    if(days <= 30) return 'var(--danger)';
+    if(days <= 60) return 'var(--warn)';
+    return 'var(--ok)';
+  }
+
   function rowHtml(p){
     const done = p.status === 'renewed';
-    const col = done ? 'var(--ok)' : (p.days_left<=30 ? 'var(--danger)' : (p.days_left<=60 ? 'var(--warn)' : 'var(--primary)'));
+    const col = done ? 'var(--ok)' : dayColor(p.days_left);
     const dayTx = p.days_left < 0 ? ('เลยกำหนด ' + Math.abs(p.days_left) + ' วัน') : ('เหลือ ' + p.days_left + ' วัน');
 
     const f = (label, val) => val ? ('<div class="pf"><i>' + label + '</i><b>' + esc(val) + '</b></div>') : '';
@@ -1256,7 +1269,7 @@
           : '<u class="pnew" style="color:var(--ok)">ต่ออายุแล้ว</u>'
             + '<span class="pold">เดิม ' + esc(p.end_label) + '</span>')
       : '<u style="color:' + col + '">' + esc(p.end_label) + '</u>'
-        + '<i style="font-style:normal;color:#aaa">' + dayTx + '</i>';
+        + '<i style="font-style:normal;color:' + col + ';opacity:.85">' + dayTx + '</i>';
 
     return '<div class="prow' + (done ? ' done' : '') + '">'
       + '<div class="ptop">'
