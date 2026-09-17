@@ -212,6 +212,18 @@
     @keyframes up{ from{transform:translateY(40px);opacity:0} to{transform:none;opacity:1} }
     .sheet-hd{ padding:16px 18px 13px; border-bottom:1px solid #F0EAF8; display:flex; align-items:center; gap:10px; }
     .sheet-hd b{ flex:1; font-size:16px; font-weight:600; color:var(--primary); }
+    /* เมนูส่งออกที่หัวมุมของกลุ่ม */
+    #sheetOut{ position:relative; }
+    .out-menu{ display:none; position:absolute; top:34px; right:0; background:#fff; border-radius:14px;
+               box-shadow:0 12px 28px rgba(0,0,0,.18); padding:6px; min-width:132px; z-index:5; }
+    .out-menu.open{ display:block; animation:swFade .18s ease-out; }
+    .out-menu button{ display:flex; align-items:center; gap:9px; width:100%; border:none; background:transparent;
+                      border-radius:10px; padding:10px 11px; cursor:pointer; text-align:left;
+                      font-family:'Prompt'; font-size:12.5px; font-weight:400; color:var(--text-main); }
+    .out-menu button:hover{ background:#F5F0FC; color:var(--primary); }
+
+    /* กระดาษ A4 สำหรับพิมพ์ / แปลงเป็นรูป — วางนอกจอไว้ ไม่ให้เห็นบนหน้าปกติ */
+    #a4Stage{ position:fixed; left:-10000px; top:0; }
     .sheet-x{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
               color:#999; cursor:pointer; } .sheet-x:hover{ background:#F4F1F9; color:var(--secondary); }
     .sheet-bd{ overflow-y:auto; padding:8px 12px 20px; }
@@ -359,6 +371,23 @@
     <div class="sheet-in">
       <div class="sheet-hd">
         <b id="sheetTitle"></b>
+        <span class="sheet-x" id="sheetOut" onclick="toggleOut(event)" title="ส่งออกรายชื่อรอบนี้" hidden>
+          <svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span class="out-menu" id="outMenu">
+            <button onclick="exportGroup('excel',event)">
+              <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="14" x2="15" y2="20"/><line x1="15" y1="14" x2="9" y2="20"/></svg>
+              Excel
+            </button>
+            <button onclick="exportGroup('pdf',event)">
+              <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              PDF
+            </button>
+            <button onclick="exportGroup('jpeg',event)">
+              <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              JPEG
+            </button>
+          </span>
+        </span>
         <span class="sheet-x" onclick="closeSheet()">
           <svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </span>
@@ -822,6 +851,7 @@
 
   function openNoFile(){
     document.getElementById('sheetTitle').textContent = 'ทะเบียนที่ยังไม่มีไฟล์แนบ';
+    document.getElementById('sheetOut').hidden = true;
     document.getElementById('sheet').classList.add('open');
     CUR_GROUP = null;
     renderNoFile();
@@ -884,6 +914,7 @@
   function openMissing(){
     if(!MISSING) return;
     document.getElementById('sheetTitle').textContent = 'รถที่มีกรมธรรม์ไม่ครบ';
+    document.getElementById('sheetOut').hidden = true;
     document.getElementById('sheet').classList.add('open');
     CUR_GROUP = null;
     renderMissing();
@@ -971,19 +1002,183 @@
     render();
   }
 
+  // ---------- ส่งออกรายชื่อของกลุ่มที่เปิดอยู่ (Excel / PDF / JPEG ขนาด A4) ----------
+  function toggleOut(ev){
+    ev.stopPropagation();
+    document.getElementById('outMenu').classList.toggle('open');
+  }
+  function closeOut(){
+    const m = document.getElementById('outMenu');
+    if(m) m.classList.remove('open');
+  }
+  document.addEventListener('click', closeOut);
+
+  /** คอลัมน์ในใบรายงาน — ใช้ร่วมกันทั้ง Excel และ A4 จะได้ไม่หลุดกัน */
+  const OUT_COLS = [
+    ['ลำดับ',       (p,i) => i + 1],
+    ['ทะเบียน',     p => p.plate || '-'],
+    ['จังหวัด',     p => p.province || '-'],
+    ['ยี่ห้อ / รุ่น', p => [p.brand, p.model].filter(Boolean).join(' ') || '-'],
+    ['เลขตัวถัง',   p => p.chassis || '-'],
+    ['เลขกรมธรรม์', p => p.policy_no || '-'],
+    ['คุ้มครองถึง', p => p.end_label || p.end_date || '-'],
+    ['เบี้ย (บาท)', p => baht(p.premium_total)],
+    ['สถานะ',       p => p.status === 'renewed' ? 'ต่อแล้ว' : 'ยังไม่ต่อ']
+  ];
+
+  function outTitle(){
+    const g = CUR_G || {};
+    return typeLabel(g.type || '') + ' รอบ ' + (g.month_label || '');
+  }
+  function outFileName(ext){
+    const g = CUR_G || {};
+    return ('รายชื่อรถ_' + typeLabel(g.type || '') + '_' + (g.month_label || '')).replace(/\s/g, '') + '.' + ext;
+  }
+
+  /** ใบ A4 แนวตั้ง 794x1123 px (96dpi) จัดหัว-ตาราง-ท้ายให้พร้อมพิมพ์ */
+  function a4Html(){
+    const g = CUR_G || {};
+    const rows = CUR_ROWS;
+    const left = rows.filter(p => p.status !== 'renewed').length;
+    const sum  = rows.reduce((a, p) => a + (Number(p.premium_total) || 0), 0);
+    const today = new Date().toLocaleDateString('th-TH', { day:'numeric', month:'long', year:'numeric' });
+
+    const th = OUT_COLS.map(c => '<th>' + c[0] + '</th>').join('');
+    const tb = rows.map((p, i) => '<tr' + (p.status === 'renewed' ? ' class="ok"' : '') + '>'
+      + OUT_COLS.map((c, ci) => '<td class="c' + ci + '">' + esc(c[1](p, i)) + '</td>').join('') + '</tr>').join('');
+
+    return ''
+      + '<div class="page">'
+      +   '<div class="hd">'
+      +     '<div><div class="t">รายชื่อรถที่ต้องต่อ' + esc(typeLabel(g.type || '')) + '</div>'
+      +     '<div class="s">รอบเดือน ' + esc(g.month_label || '') + ' · กำหนดหมดอายุ ' + esc(g.end_label || g.month_label || '') + '</div></div>'
+      +     '<div class="co">SUKSOMBOON GROUP<br><span>ออกรายงาน ' + esc(today) + '</span></div>'
+      +   '</div>'
+      +   '<div class="sm">'
+      +     '<div><b>' + rows.length + '</b><span>ฉบับทั้งหมด</span></div>'
+      +     '<div><b>' + left + '</b><span>ยังไม่ต่อ</span></div>'
+      +     '<div><b>' + (rows.length - left) + '</b><span>ต่อแล้ว</span></div>'
+      +     '<div><b>' + baht(sum) + '</b><span>เบี้ยรวม (บาท)</span></div>'
+      +   '</div>'
+      +   '<table><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table>'
+      +   '<div class="ft"><div>ผู้จัดทำ ..................................................</div>'
+      +   '<div>ผู้อนุมัติ ..................................................</div></div>'
+      + '</div>';
+  }
+
+  const A4_CSS = ''
+    + '@page{ size:A4 portrait; margin:0; }'
+    + '*{ box-sizing:border-box; }'
+    + 'body{ margin:0; background:#eee; font-family:"Prompt",sans-serif; }'
+    + '.page{ width:794px; min-height:1123px; background:#fff; padding:44px 40px 40px; margin:0 auto;'
+    +   ' display:flex; flex-direction:column; }'
+    + '.hd{ display:flex; align-items:flex-start; justify-content:space-between;'
+    +   ' border-bottom:3px solid #6200EA; padding-bottom:13px; }'
+    + '.hd .t{ font-size:21px; font-weight:600; color:#3d0099; }'
+    + '.hd .s{ font-size:12.5px; color:#666; font-weight:300; margin-top:4px; }'
+    + '.hd .co{ text-align:right; font-size:12px; font-weight:600; color:#6200EA; line-height:1.6; }'
+    + '.hd .co span{ font-size:10.5px; color:#999; font-weight:300; }'
+    + '.sm{ display:flex; gap:10px; margin:16px 0 14px; }'
+    + '.sm div{ flex:1; background:#F7F4FD; border-radius:10px; padding:10px; text-align:center; }'
+    + '.sm b{ display:block; font-size:17px; font-weight:600; color:#6200EA; }'
+    + '.sm span{ display:block; font-size:10px; color:#888; font-weight:300; margin-top:2px; }'
+    + 'table{ width:100%; border-collapse:collapse; font-size:10.5px; }'
+    + 'th{ background:#6200EA; color:#fff; font-weight:500; padding:8px 5px; text-align:left; }'
+    + 'th:first-child{ border-radius:7px 0 0 0; } th:last-child{ border-radius:0 7px 0 0; }'
+    + 'td{ padding:7px 5px; border-bottom:1px solid #EFEAF8; font-weight:300; color:#222; }'
+    + 'tbody tr:nth-child(even) td{ background:#FBFAFE; }'
+    + 'tr.ok td{ color:#00893d; }'
+    + '.c0{ width:34px; text-align:center; } .c1{ font-weight:500; white-space:nowrap; }'
+    + '.c7{ text-align:right; white-space:nowrap; } .c6,.c8{ white-space:nowrap; }'
+    + '.ft{ margin-top:auto; padding-top:34px; display:flex; justify-content:space-between;'
+    +   ' font-size:11px; color:#555; font-weight:300; }'
+    + '@media print{ body{ background:#fff; } .page{ margin:0; } }';
+
+  function exportGroup(kind, ev){
+    if(ev) ev.stopPropagation();
+    closeOut();
+    if(!CUR_ROWS.length) return;
+    if(kind === 'excel') return outExcel();
+    if(kind === 'pdf')   return outPdf();
+    if(kind === 'jpeg')  return outJpeg();
+  }
+
+  function outExcel(){
+    const rows = CUR_ROWS;
+    const head = OUT_COLS.map(c => '<th>' + c[0] + '</th>').join('');
+    const body = rows.map((p, i) =>
+      '<tr>' + OUT_COLS.map(c => '<td>' + esc(c[1](p, i)) + '</td>').join('') + '</tr>').join('');
+    const html = '<meta charset="utf-8">'
+      + '<h3>' + esc(outTitle()) + '</h3>'
+      + '<table border="1"><tr>' + head + '</tr>' + body + '</table>';
+    const blob = new Blob(['﻿' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = outFileName('xls');
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
+  }
+
+  // PDF: เปิดหน้าต่างขนาด A4 แล้วเรียกพิมพ์ ผู้ใช้เลือก "บันทึกเป็น PDF" ได้เลย
+  // ไม่ต้องพึ่งไลบรารีสร้าง PDF ซึ่งมักพังกับฟอนต์ไทย
+  function outPdf(){
+    const w = window.open('', '_blank');
+    if(!w) return alert('เบราว์เซอร์บล็อกหน้าต่างใหม่ไว้ กรุณาอนุญาต popup แล้วลองอีกครั้ง');
+    w.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8">'
+      + '<title>' + esc(outTitle()) + '</title>'
+      + '<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">'
+      + '<style>' + A4_CSS + '</style></head><body>' + a4Html() + '</body></html>');
+    w.document.close();
+    // รอฟอนต์โหลดก่อน ไม่งั้นตัวหนังสือจะเพี้ยนตอนพิมพ์
+    const go = () => setTimeout(()=>{ w.focus(); w.print(); }, 400);
+    if(w.document.fonts && w.document.fonts.ready) w.document.fonts.ready.then(go); else w.onload = go;
+  }
+
+  let H2C = null;
+  function loadH2C(){
+    if(H2C) return Promise.resolve(H2C);
+    return new Promise((res, rej)=>{
+      const sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      sc.onload = () => { H2C = window.html2canvas; res(H2C); };
+      sc.onerror = () => rej(new Error('โหลดตัวแปลงรูปไม่ได้'));
+      document.head.appendChild(sc);
+    });
+  }
+
+  function outJpeg(){
+    loadH2C().then(h2c=>{
+      let stage = document.getElementById('a4Stage');
+      if(!stage){ stage = document.createElement('div'); stage.id = 'a4Stage'; document.body.appendChild(stage); }
+      stage.innerHTML = '<style>' + A4_CSS + '</style>' + a4Html();
+      const page = stage.querySelector('.page');
+      return h2c(page, { scale:2, backgroundColor:'#ffffff', useCORS:true }).then(canvas=>{
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/jpeg', 0.92);
+        a.download = outFileName('jpg');
+        a.click();
+        stage.innerHTML = '';
+      });
+    }).catch(e=> alert('สร้างรูปไม่สำเร็จ: ' + (e.message || '')));
+  }
+
   // ---------- รายละเอียดกลุ่ม ----------
-  let CUR_GROUP = null;
+  let CUR_GROUP = null, CUR_G = null, CUR_ROWS = [];
   function openGroup(key){
-    CUR_GROUP = key;
+    CUR_GROUP = key; CUR_G = null; CUR_ROWS = [];
+    document.getElementById('sheetOut').hidden = true;
+    closeOut();
     document.getElementById('sheetTitle').textContent = 'กำลังโหลด…';
     document.getElementById('sheetBody').innerHTML = '<div class="empty">กำลังดึงรายการ…</div>';
     document.getElementById('sheet').classList.add('open');
     api('ins_group', { group_key: key }).then(r=>{
       const g = r.group || {};
+      CUR_G = g; CUR_ROWS = r.rows || [];
       document.getElementById('sheetTitle').textContent =
         typeLabel(g.type || '') + ' · ' + (g.month_label || '') + ' (' + (r.count || 0) + ' ฉบับ)';
       document.getElementById('sheetBody').innerHTML = (r.rows || []).map(rowHtml).join('')
         || '<div class="empty">ไม่มีรายการ</div>';
+      document.getElementById('sheetOut').hidden = !CUR_ROWS.length;
     }).catch(()=>{
       document.getElementById('sheetBody').innerHTML = '<div class="empty">ดึงรายการไม่สำเร็จ</div>';
     });
