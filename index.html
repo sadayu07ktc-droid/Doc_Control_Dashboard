@@ -15,7 +15,11 @@
       --bg-gradient: linear-gradient(135deg, #6200EA 0%, #FF007F 100%); 
       --card-bg: rgba(255, 255, 255, 0.95); 
       --text-main: #1A1A1A; 
-      --success: #00E676; --warning: #FFD600; --danger: #FF5252;
+      /* สีสด ใช้กับพื้น/แถบ/จุด — สว่างเกินกว่าจะเอามาทำตัวอักษร */
+      --success: #00C853; --warning: #F5A623; --danger: #F04438;
+      /* สีเข้ม ใช้กับตัวอักษรโดยเฉพาะ ให้อ่านออกบนพื้นขาวและพื้นอ่อน */
+      --success-ink: #0F7A44; --warning-ink: #9A5B00; --danger-ink: #C62828;
+      --ink-2: #4A4A4A; --ink-3: #6B6B6B;
     }
 
     body { font-family: 'Prompt', sans-serif; background: var(--bg-gradient); color: var(--text-main); padding: 15px; margin: 0; min-height: 100vh; }
@@ -26,7 +30,7 @@
     .profile-info img { width: 60px; height: 60px; border-radius: 50%; border: 3px solid var(--secondary); }
     .profile-text { text-align: left; }
     .profile-text h3 { margin: 0; font-size: 15px; color: var(--primary); }
-    .profile-text p { margin: 2px 0 0 0; font-size: 12px; color: #555; }
+    .profile-text p { margin: 2px 0 0 0; font-size: 12px; color: var(--ink-2); }
     .profile-text { flex: 1; min-width: 0; }
     .btn-out { flex: none; border: none; background: #F6F2FB; color: #8A8A8A; border-radius: 12px;
                padding: 9px 13px; font-family: 'Prompt'; font-size: 12px; font-weight: 500; cursor: pointer;
@@ -64,10 +68,12 @@
     .doc-card.status-หมดอายุแล้ว { border-left-color: var(--danger); }
 
     .doc-title { font-weight: 600; font-size: 16px; color: var(--primary); margin-bottom: 10px; padding-right: 70px; line-height: 1.3; }
-    .doc-details { font-size: 12px; color: #555; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .doc-details { font-size: 12.5px; color: var(--ink-2); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     
-    .days-badge { background: #F0F0F0; padding: 5px 12px; border-radius: 12px; font-weight: 700; font-size: 13px; display: inline-block; margin-top: 10px; }
-    .status-badge { position: absolute; top: 0; right: 0; padding: 5px 12px; font-size: 10px; color: white; border-bottom-left-radius: 15px; font-weight: 600; }
+    .days-badge { background: #EDEDED; padding: 6px 13px; border-radius: 12px; font-weight: 700; font-size: 13.5px; display: inline-block; margin-top: 10px; }
+    .status-badge { position: absolute; top: 0; right: 0; padding: 6px 13px; font-size: 10.5px; color: #fff;
+                    border-bottom-left-radius: 15px; font-weight: 600; letter-spacing: .2px;
+                    text-shadow: 0 1px 1px rgba(0,0,0,.18); }
     
     .process-badge { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 600; margin-bottom: 10px; border: 1px solid #CCC; }
 
@@ -125,18 +131,18 @@
     .list-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
     .list-main { flex: 1; min-width: 0; }
     .list-main b { display: block; font-size: 13.5px; color: var(--primary); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .list-main small { display: block; font-size: 11.5px; color: #888; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .list-main small { display: block; font-size: 11.5px; color: var(--ink-3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .list-days { font-size: 12.5px; font-weight: 700; white-space: nowrap; flex: none; }
 
     /* ===== มุมมองตาราง ===== */
     .tbl-wrap { background: white; border-radius: 16px; padding: 6px 6px 2px; box-shadow: 0 8px 15px rgba(0,0,0,0.08); overflow-x: auto; }
     .tbl { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 520px; }
-    .tbl th { text-align: left; font-weight: 500; color: #888; font-size: 11px; padding: 10px 8px; border-bottom: 1px solid #EEE; white-space: nowrap; }
-    .tbl td { padding: 10px 8px; border-bottom: 1px solid #F5F5F5; color: #444; vertical-align: middle; }
+    .tbl th { text-align: left; font-weight: 500; color: var(--ink-3); font-size: 11.5px; padding: 10px 8px; border-bottom: 1px solid #EEE; white-space: nowrap; }
+    .tbl td { padding: 10px 8px; border-bottom: 1px solid #F5F5F5; color: #333; vertical-align: middle; }
     .tbl tbody tr { cursor: pointer; transition: 0.15s; }
     .tbl tbody tr:hover { background: #FAF5FF; }
     .tbl td b { color: var(--primary); font-weight: 600; }
-    .tbl td small { color: #999; font-size: 11px; }
+    .tbl td small { color: var(--ink-3); font-size: 11.5px; }
     .tbl-badge { display: inline-block; padding: 3px 9px; border-radius: 20px; color: white; font-size: 10px; font-weight: 500; white-space: nowrap; }
     .tbl-hint { text-align: center; font-size: 11px; color: #AAA; margin: 8px 0; }
 
@@ -530,7 +536,7 @@
 
     /** ค่าที่ทุกมุมมองใช้ร่วมกัน */
     function docMeta(doc) {
-      const dayColor = doc.daysLeft < 0 ? 'var(--danger)' : (doc.daysLeft <= 60 ? 'var(--warning)' : 'var(--success)');
+      const dayColor = doc.daysLeft < 0 ? 'var(--danger-ink)' : (doc.daysLeft <= 60 ? 'var(--warning-ink)' : 'var(--success-ink)');
       const badgeColor = doc.status === 'ปกติ' ? 'var(--success)' : (doc.status === 'ใกล้หมดอายุ' ? 'var(--warning)' : 'var(--danger)');
       const isAlert = (doc.status === 'ใกล้หมดอายุ' || doc.status === 'หมดอายุแล้ว');
       const displayProcess = (isAlert && doc.process === 'กำลังใช้งาน') ? 'รอดำเนินการ' : doc.process;
@@ -577,12 +583,12 @@
 
     /** มุมมองการ์ด — ละเอียดที่สุด มีปุ่มจัดการครบ */
     function cardHtml(doc) {
-        let dayColor = doc.daysLeft < 0 ? 'var(--danger)' : (doc.daysLeft <= 60 ? 'var(--warning)' : 'var(--success)');
+        let dayColor = doc.daysLeft < 0 ? 'var(--danger-ink)' : (doc.daysLeft <= 60 ? 'var(--warning-ink)' : 'var(--success-ink)');
         let badgeColor = doc.status === 'ปกติ' ? 'var(--success)' : (doc.status === 'ใกล้หมดอายุ' ? 'var(--warning)' : 'var(--danger)');
         
         let isAlert = (doc.status === 'ใกล้หมดอายุ' || doc.status === 'หมดอายุแล้ว');
         let displayProcess = (isAlert && doc.process === 'กำลังใช้งาน') ? 'รอดำเนินการ' : doc.process;
-        let processColor = (displayProcess === 'ดำเนินการแล้ว' || displayProcess === 'เสร็จสิ้น') ? 'var(--success)' : (displayProcess === 'รอดำเนินการ' ? '#FF9800' : '#888');
+        let processColor = (displayProcess === 'ดำเนินการแล้ว' || displayProcess === 'เสร็จสิ้น') ? 'var(--success-ink)' : (displayProcess === 'รอดำเนินการ' ? 'var(--warning-ink)' : 'var(--ink-3)');
     
         const customAlertHtml = doc.customAlerts && doc.customAlerts.length > 0 ? `
           <div style="background:#FFF3E0; padding:10px; border-radius:12px; margin-top:12px; color:#E65100; font-size:13px; line-height:1.6;">
@@ -597,7 +603,7 @@
             `).join('')}
           </div>
         ` : `
-          <div style="background:#FFF3E0; padding:10px; border-radius:12px; margin-top:12px; color:#999; font-size:13px;">
+          <div style="background:#FFF3E0; padding:10px; border-radius:12px; margin-top:12px; color:#8A6000; font-size:13px;">
             <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13.7 21a2 2 0 0 1-3.4 0"/><path d="M18.6 13A17 17 0 0 1 18 8"/><path d="M6.3 6.3A6 6 0 0 0 6 8c0 7-3 9-3 9h14"/><line x1="2" y1="2" x2="22" y2="22"/></svg> ยังไม่มี Alert เพิ่มเติม
           </div>
         `;
@@ -609,7 +615,7 @@
             <div class="doc-title">
               ${doc.docName}
               <br>
-              <small style="color:#888; font-weight:normal; font-size:13px;">
+              <small style="color:var(--ink-3); font-weight:normal; font-size:13px;">
                 ${doc.agency || 'ไม่ระบุหน่วยงาน'}
               </small>
             </div>
@@ -629,7 +635,7 @@
                 <br>${doc.endDate}
               </div>
     
-              <div style="grid-column:1 / span 2; background:#FFF8E1; padding:8px; border-radius:10px; color:#795548;">
+              <div style="grid-column:1 / span 2; background:#FFF8E1; padding:8px; border-radius:10px; color:#7A4E00; font-weight:500;">
                 ${LI.bell}
                 แจ้งเตือนก่อนหมดอายุ:
                 <b>${doc.alertDays ? doc.alertDays + ' วัน' : 'ไม่ได้ระบุ'}</b>
