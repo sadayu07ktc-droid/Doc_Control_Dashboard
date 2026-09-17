@@ -54,7 +54,9 @@
     .sw-it .t b{ display:block; font-size:13px; font-weight:500; color:var(--text-main); }
     .sw-it .t small{ display:block; font-size:11px; color:#8a8a8a; font-weight:300; margin-top:1px; }
     .sw-ask{ margin:0 18px 4px; background:#FFF8E1; border:1px solid #FFE8A3; border-radius:15px; padding:14px; }
-    .sw-ask b{ display:block; font-size:12.5px; font-weight:500; color:#8A5B00; line-height:1.55; }
+    /* ต้องเจาะจงลูกชั้นแรก ไม่งั้นตัวเน้นที่ซ้อนข้างในจะกลายเป็น block แล้วตกบรรทัด */
+    .sw-ask > b{ display:block; font-size:12.5px; font-weight:500; color:#8A5B00; line-height:1.6; }
+    .sw-ask .n{ font-size:15px; font-weight:600; color:#E65100; }
     .sw-ask-b{ display:flex; gap:8px; margin-top:11px; }
     .sw-ask-b button{ flex:1; border:none; border-radius:11px; padding:11px 8px; cursor:pointer;
                       font-family:'Prompt'; font-size:12.5px; font-weight:500; }
@@ -782,8 +784,9 @@
     const askBox = document.getElementById('swAsk');
     if(ask.length){
       document.getElementById('swAskTx').innerHTML =
-        'มี <b style="font-size:14px">' + ask.length + '</b> ทะเบียนที่ยังไม่ได้ลงในไฟล์ Excel — '
-        + ask.map(a => esc(a.plate)).join(' · ') + '<br>ให้เพิ่มเข้าระบบพร้อมแนบไฟล์ให้เลยไหม';
+        'มี <span class="n">' + ask.length + '</span> ทะเบียนที่ยังไม่ได้ลงในไฟล์ Excel'
+        + ' — ' + ask.map(a => esc(a.plate)).join(' · ')
+        + '<br>ให้เพิ่มเข้าระบบพร้อมแนบไฟล์ให้เลยไหม';
       askBox.hidden = false;
       document.getElementById('swFt').hidden = true;
     } else {
