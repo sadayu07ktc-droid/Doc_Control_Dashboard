@@ -29,6 +29,45 @@
     .rfr.spin svg{ animation:rfrSpin .8s linear infinite; }
     @keyframes rfrSpin{ to{ transform:rotate(360deg) } }
 
+    /* popup สรุปผลการกวาดโฟลเดอร์แชร์ประจำวัน */
+    .sw-bg{ display:none; position:fixed; inset:0; background:rgba(20,10,40,.45); backdrop-filter:blur(3px);
+            z-index:80; align-items:center; justify-content:center; padding:20px; }
+    .sw-bg.open{ display:flex; animation:swFade .25s ease-out; }
+    @keyframes swFade{ from{opacity:0} to{opacity:1} }
+    .sw{ background:#fff; border-radius:22px; width:100%; max-width:410px; max-height:82vh; overflow:auto;
+         box-shadow:0 22px 50px rgba(0,0,0,.3); animation:swUp .3s cubic-bezier(.22,1,.36,1); }
+    @keyframes swUp{ from{opacity:0;transform:translateY(24px) scale(.96)} to{opacity:1;transform:none} }
+    .sw-hd{ padding:20px 22px 14px; text-align:center; }
+    .sw-hd .ic{ width:52px; height:52px; border-radius:17px; background:#EDE7F6; color:var(--primary);
+                display:flex; align-items:center; justify-content:center; margin:0 auto 11px; }
+    .sw-hd b{ display:block; font-size:16px; font-weight:600; color:var(--text-main); }
+    .sw-hd small{ display:block; font-size:11.5px; color:#999; font-weight:300; margin-top:3px; }
+    .sw-nums{ display:grid; grid-template-columns:repeat(4,1fr); gap:7px; padding:4px 18px 14px; }
+    .sw-nums div{ background:#FAF8FD; border-radius:13px; padding:10px 4px; text-align:center; }
+    .sw-nums b{ display:block; font-size:18px; font-weight:600; }
+    .sw-nums small{ display:block; font-size:10px; color:#999; font-weight:300; margin-top:1px; }
+    .sw-list{ border-top:1px solid #F1ECF8; }
+    .sw-it{ display:flex; align-items:center; gap:10px; padding:10px 20px; border-bottom:1px solid #F7F4FC; }
+    .sw-it:last-child{ border-bottom:none; }
+    .sw-it .d{ width:8px; height:8px; border-radius:50%; flex:none; }
+    .sw-it .t{ flex:1; min-width:0; }
+    .sw-it .t b{ display:block; font-size:13px; font-weight:500; color:var(--text-main); }
+    .sw-it .t small{ display:block; font-size:11px; color:#8a8a8a; font-weight:300; margin-top:1px; }
+    .sw-ask{ margin:0 18px 4px; background:#FFF8E1; border:1px solid #FFE8A3; border-radius:15px; padding:14px; }
+    .sw-ask b{ display:block; font-size:12.5px; font-weight:500; color:#8A5B00; line-height:1.55; }
+    .sw-ask-b{ display:flex; gap:8px; margin-top:11px; }
+    .sw-ask-b button{ flex:1; border:none; border-radius:11px; padding:11px 8px; cursor:pointer;
+                      font-family:'Prompt'; font-size:12.5px; font-weight:500; }
+    .sw-ask-b .no{ background:#fff; color:#8a7a55; border:1px solid #E8DCB8; }
+    .sw-ask-b .yes{ background:#F9A825; color:#fff; }
+    .sw-ask-b button:disabled{ opacity:.6; cursor:default; }
+    .sw-ask-b button:active{ transform:scale(.98); }
+    .sw-ft{ padding:14px 18px 18px; }
+    .sw-ft button{ width:100%; border:none; border-radius:13px; padding:13px; cursor:pointer;
+                   font-family:'Prompt'; font-size:13.5px; font-weight:500; color:#fff;
+                   background:linear-gradient(135deg,var(--primary),var(--secondary)); }
+    .sw-ft button:active{ transform:scale(.98); }
+
     .gap-bar.fb{ border-left-color:var(--primary); }
     .gap-bar.fb .gap-ic{ background:#EDE7F6; color:var(--primary); }
     .gap-bar.fb .gap-n{ color:var(--primary); }
@@ -294,6 +333,28 @@
     <div class="glist" id="groups"></div>
   </div>
 
+  <div class="sw-bg" id="swBg" onclick="if(event.target===this) closeSweep()">
+    <div class="sw">
+      <div class="sw-hd">
+        <span class="ic">
+          <svg class="li" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><polyline points="22 4 12 14.1 9 11.1"/></svg>
+        </span>
+        <b id="swTitle">ผลการรับไฟล์ พรบ.</b>
+        <small id="swWhen"></small>
+      </div>
+      <div class="sw-nums" id="swNums"></div>
+      <div class="sw-list" id="swList"></div>
+      <div class="sw-ask" id="swAsk" hidden>
+        <b id="swAskTx"></b>
+        <div class="sw-ask-b">
+          <button class="no" onclick="closeSweep()">ไว้ก่อน</button>
+          <button class="yes" id="swYes" onclick="addPending()">ยืนยัน เพิ่มให้เลย</button>
+        </div>
+      </div>
+      <div class="sw-ft" id="swFt"><button onclick="closeSweep()">รับทราบ</button></div>
+    </div>
+  </div>
+
   <div class="sheet" id="sheet" onclick="if(event.target===this) closeSheet()">
     <div class="sheet-in">
       <div class="sheet-hd">
@@ -512,15 +573,18 @@
 
   function boot(attempt){
     attempt = attempt || 1;
-    return Promise.all([ api('ins_groups'), api('ins_config'), api('ins_list'), api('ins_missing') ]).then(([g, c, l, m])=>{
+    return Promise.all([ api('ins_groups'), api('ins_config'), api('ins_list'), api('ins_missing'),
+                         api('ins_sweep_state').catch(()=>null) ]).then(([g, c, l, m, sw])=>{
       clearTimeout(SLOW_T); clearTimeout(GIVEUP_T);
       GROUPS = g.groups || []; TOTAL = g.total_policies || 0; CFG = (c && c.config) || null;
       ALL_ROWS = (l && l.rows) || [];
       MISSING = (m && m.status === 'success') ? m : null;
+      SWEEP = (sw && sw.status === 'success') ? sw.last : null;
       renderGapBar(); renderFileBar();
       render(); hideLoad();
       const want = new URLSearchParams(location.search).get('g');   // ลิงก์จากการ์ด LINE
       if(want) setTimeout(()=>openGroup(want), 350);
+      else setTimeout(maybeShowSweep, 500);   // ให้หน้าโหลดเสร็จก่อนค่อยเด้ง
     }).catch(()=>{
       if(attempt < 3){                       // ลองใหม่เอง ถ่วงเวลาเพิ่มขึ้นทีละรอบ
         setLoadTx('เชื่อมต่อไม่ติด กำลังลองใหม่ (' + attempt + '/3)…');
@@ -632,6 +696,105 @@
       'ขาด พรบ. ' + MISSING.count_missing_compulsory + ' คัน · ขาดประกันภัย ' + MISSING.count_missing_voluntary + ' คัน'
       + ' · จากรถทั้งหมด ' + MISSING.total_vehicles + ' คัน';
     bar.classList.add('show');
+  }
+
+  // ---------- popup สรุปผลการกวาดโฟลเดอร์แชร์ ----------
+  // ตัวกวาดรันบนเครื่องในออฟฟิศแล้วส่งสรุปมาเก็บไว้ที่ระบบ
+  // หน้านี้เอามาขึ้นให้ดูครั้งเดียวต่อรอบ (จำด้วย localStorage ว่ารอบไหนกดรับทราบไปแล้ว)
+  var SWEEP = null;
+  const SW_SEEN = 'insSweepSeen';
+  const SW_KIND = {
+    added:     { c:'#7C4DFF', t:'เพิ่มเข้าระบบ' },
+    renewed:   { c:'#00C853', t:'ต่ออายุแล้ว' },
+    attached:  { c:'#2979FF', t:'แนบไฟล์แล้ว' },
+    duplicate: { c:'#FFA000', t:'ไฟล์ซ้ำ' },
+    review:    { c:'#E53935', t:'ต้องตรวจสอบ' }
+  };
+
+  function maybeShowSweep(){
+    if(!SWEEP || !SWEEP.at) return;
+    let seen = '';
+    try { seen = localStorage.getItem(SW_SEEN) || ''; } catch(e){}
+    // ถ้ายังมีรถที่รอคนตัดสินใจ ให้เด้งทุกครั้งจนกว่าจะจัดการเสร็จ ไม่ใช่ครั้งเดียวแล้วหาย
+    if(seen === SWEEP.at && !pendingAdds().length) return;
+    if(!SWEEP.files) return;                   // รอบที่ไม่มีไฟล์เลย ไม่ต้องรบกวน
+    openSweep();
+  }
+
+  function openSweep(){
+    const s = SWEEP;
+    if(!s) return;
+    document.getElementById('swWhen').textContent = 'กวาดโฟลเดอร์แชร์เมื่อ ' + (s.at_label || s.at)
+      + ' · ไฟล์ทั้งหมด ' + s.files + ' ไฟล์';
+    const nums = [
+      ['เข้าระบบ', (s.added||0) + (s.renewed||0) + (s.attached||0), 'var(--primary)'],
+      ['ต่ออายุ',  s.renewed||0,  '#00A040'],
+      ['ไฟล์ซ้ำ',  s.duplicate||0, s.duplicate ? '#FFA000' : '#C7C7C7'],
+      ['ต้องตรวจ', s.review||0,   s.review ? '#E53935' : '#C7C7C7']
+    ];
+    document.getElementById('swNums').innerHTML = nums.map(n =>
+      '<div><b style="color:' + n[2] + '">' + n[1] + '</b><small>' + n[0] + '</small></div>').join('');
+
+    // เรียงให้เรื่องที่ต้องลงมือทำขึ้นก่อน
+    const order = { review:0, duplicate:1, added:2, renewed:3, attached:4 };
+    const items = (s.items || []).slice().sort((a,b)=>(order[a.kind]||9)-(order[b.kind]||9));
+    document.getElementById('swList').innerHTML = items.length
+      ? items.map(it => {
+          const k = SW_KIND[it.kind] || { c:'#999', t:it.kind };
+          return '<div class="sw-it"><span class="d" style="background:' + k.c + '"></span>'
+            + '<div class="t"><b>' + esc(it.plate || '(ไม่ทราบทะเบียน)') + '</b>'
+            + '<small>' + esc(it.text) + '</small></div>'
+            + '<small style="font-size:10.5px;color:' + k.c + ';font-weight:500;flex:none">' + k.t + '</small></div>';
+        }).join('')
+      : '<div style="padding:18px;text-align:center;color:#999;font-size:12.5px;font-weight:300">รอบนี้ไม่มีรายการเปลี่ยนแปลง</div>';
+
+    // รถที่ยังไม่มีในระบบ ถามก่อนว่าจะเพิ่มให้เลยไหม
+    const ask = pendingAdds();
+    const askBox = document.getElementById('swAsk');
+    if(ask.length){
+      document.getElementById('swAskTx').innerHTML =
+        'มี <b style="font-size:14px">' + ask.length + '</b> ทะเบียนที่ยังไม่ได้ลงในไฟล์ Excel — '
+        + ask.map(a => esc(a.plate)).join(' · ') + '<br>ให้เพิ่มเข้าระบบพร้อมแนบไฟล์ให้เลยไหม';
+      askBox.hidden = false;
+      document.getElementById('swFt').hidden = true;
+    } else {
+      askBox.hidden = true;
+      document.getElementById('swFt').hidden = false;
+    }
+    document.getElementById('swBg').classList.add('open');
+  }
+
+  function pendingAdds(){
+    return ((SWEEP && SWEEP.items) || []).filter(i => i.can_add && i.policy_no);
+  }
+
+  function addPending(){
+    const items = pendingAdds();
+    if(!items.length) return closeSweep();
+    const btn = document.getElementById('swYes');
+    btn.disabled = true; btn.textContent = 'กำลังเพิ่ม…';
+    post({ action:'ins_add_pending', items: items }).then(r=>{
+      if(r.status !== 'success') throw new Error(r.message || '');
+      document.getElementById('swAsk').hidden = true;
+      document.getElementById('swFt').hidden = false;
+      document.getElementById('swList').innerHTML =
+        '<div style="padding:20px;text-align:center;font-size:13px;color:#00A040;font-weight:500">'
+        + 'เพิ่มเข้าระบบแล้ว ' + r.added + ' ทะเบียน'
+        + (r.linked ? (' · แนบไฟล์ให้ ' + r.linked + ' ใบ') : '') + '</div>';
+      if(SWEEP) SWEEP.items = (SWEEP.items || []).filter(i => !i.can_add);
+      // จำว่ารอบนี้จัดการแล้ว ไม่งั้นพอ boot ใหม่เสร็จ popup จะเด้งซ้ำทับข้อความนี้
+      try { if(SWEEP && SWEEP.at) localStorage.setItem(SW_SEEN, SWEEP.at); } catch(e){}
+      boot(1);                                   // ดึงข้อมูลใหม่ ตัวเลขบนหน้าจะได้ตรง
+    }).catch(e=>{
+      btn.disabled = false; btn.textContent = 'ลองใหม่';
+      document.getElementById('swAskTx').innerHTML =
+        '<span style="color:#C62828">เพิ่มไม่สำเร็จ ' + esc(e.message || '') + ' ลองอีกครั้งได้</span>';
+    });
+  }
+
+  function closeSweep(){
+    document.getElementById('swBg').classList.remove('open');
+    if(SWEEP && SWEEP.at){ try { localStorage.setItem(SW_SEEN, SWEEP.at); } catch(e){} }
   }
 
   // ---------- สถานะไฟล์แนบ ----------
