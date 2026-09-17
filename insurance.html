@@ -336,16 +336,35 @@
 
   // ================= รหัสผ่าน 6 หลัก =================
   const PIN_KEY = 'ssb_ins_pin_ok';
-  const PIN_HOURS = 12;              // ผ่านแล้วจำไว้ 12 ชม. จะได้ไม่ต้องกดทุกครั้ง
+  const PIN_MINUTES = 30;            // ผ่านแล้วจำไว้ 30 นาที พอให้ทำงานต่อเนื่องได้ แต่วางมือถือทิ้งไว้ก็ล็อกเอง
   let PIN_BUF = '', PIN_MODE = 'check', PIN_TMP = '', PIN_TRY = 0;
 
   function pinRemembered(){
     try{
       const t = Number(localStorage.getItem(PIN_KEY) || 0);
-      return t && (Date.now() - t) < PIN_HOURS * 3600 * 1000;
+      return t && (Date.now() - t) < PIN_MINUTES * 60 * 1000;
     }catch(e){ return false; }
   }
   function rememberPin(){ try{ localStorage.setItem(PIN_KEY, String(Date.now())); }catch(e){} }
+
+  /** ต่ออายุเวลาทุกครั้งที่ผู้ใช้ยังขยับอยู่ — 30 นาทีนับจากการใช้งานครั้งล่าสุด ไม่ใช่จากตอนใส่รหัส */
+  function touchPin(){ if(pinRemembered()) rememberPin(); }
+  ['click','keydown','touchstart'].forEach(function(ev){
+    document.addEventListener(ev, touchPin, { passive:true });
+  });
+
+  /** กลับมาที่หน้าเว็บอีกครั้ง ถ้าหมดอายุแล้วให้ล็อกทันที ไม่ปล่อยให้เห็นข้อมูลค้างจอ */
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible' && !pinRemembered()) relock();
+  });
+
+  function relock(){
+    PIN_BUF=''; PIN_TMP=''; PIN_MODE='check';
+    pinDots(); pinErr('');
+    document.getElementById('lkTitle').textContent='ใส่รหัสผ่าน';
+    document.getElementById('lkSub').textContent='หมดเวลาแล้ว กรุณาใส่รหัสอีกครั้ง';
+    document.getElementById('lock').classList.add('show');
+  }
 
   function drawPad(){
     const keys = ['1','2','3','4','5','6','7','8','9','ล้าง','0','ลบ'];
