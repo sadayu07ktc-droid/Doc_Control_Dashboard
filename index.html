@@ -297,10 +297,18 @@
       }).catch(err => showError('การตั้งค่า LIFF ID ไม่ถูกต้อง'));
     };
 
-    function fetchDashboard(userId) {
-      fetch(`${GAS_API_URL}?action=getDashboard&userId=${userId}`)
+    /**
+     * GAS ตื่นช้าได้ (cold start) และเน็ตมือถือหลุดง่าย
+     * จึงลองใหม่เองสูงสุด 3 ครั้ง ก่อนจะบอกผู้ใช้ว่าพัง
+     */
+    let LAST_UID = '';
+    function fetchDashboard(userId, attempt) {
+      attempt = attempt || 1;
+      LAST_UID = userId;
+      fetch(`${GAS_API_URL}?action=getDashboard&userId=${userId}&t=${Date.now()}`)
         .then(res => res.json())
         .then(data => {
+          clearTimeout(SLOW_T); clearTimeout(GIVEUP_T);
           allDocs = data.docs || data; 
           if(data.sysName) document.getElementById('systemName').innerText = "ชื่อในระบบ: " + data.sysName;
           if(data.sysDept) document.getElementById('systemDept').innerText = "แผนก: " + data.sysDept;
@@ -315,12 +323,38 @@
           document.getElementById('viewBar').style.display = 'flex';
           initViewBar();
         })
-        .catch(error => showError('ระบบหลังบ้านขัดข้อง ไม่สามารถดึงข้อมูลได้'));
+        .catch(function (error) {
+          if (attempt < 3) {                      // ลองใหม่ ถ่วงเวลาเพิ่มขึ้นทีละรอบ
+            setLoadText('เชื่อมต่อไม่ติด กำลังลองใหม่ (' + attempt + '/3)…');
+            setTimeout(function () { fetchDashboard(userId, attempt + 1); }, attempt * 2500);
+            return;
+          }
+          showError('เชื่อมต่อระบบไม่ได้');
+        });
+    }
+
+    function setLoadText(msg) {
+      const el = document.getElementById('loadingText');
+      if (el) el.textContent = msg;
     }
 
     function showError(msg) {
+      clearTimeout(SLOW_T); clearTimeout(GIVEUP_T);
       document.getElementById('spinner').style.display = 'none';
-      document.getElementById('loadingText').innerHTML = `<span style="color:#FFD600; font-weight:bold;">${msg}</span><br><br><small>กรุณาตรวจสอบ URL หรือ รีเฟรชหน้าใหม่อีกครั้ง</small>`;
+      document.getElementById('loadingText').innerHTML =
+        '<span style="color:#FFD600;font-weight:600">' + msg + '</span>'
+        + '<br><small style="opacity:.85">สัญญาณอาจไม่เสถียร ลองกดปุ่มด้านล่างอีกครั้ง</small>'
+        + '<br><br><button onclick="retryLoad()" style="border:none;border-radius:12px;padding:11px 26px;'
+        + 'background:#fff;color:#6200EA;font-family:Prompt;font-size:14px;font-weight:500;cursor:pointer">ลองใหม่</button>';
+    }
+
+    /** ผู้ใช้กดลองใหม่ — กลับไปตั้งต้นฉากโหลดแล้วยิงซ้ำ */
+    function retryLoad() {
+      document.getElementById('spinner').style.display = '';
+      setLoadText('กำลังโหลดแดชบอร์ดเอกสาร');
+      armLoadTimers();
+      if (LAST_UID) fetchDashboard(LAST_UID, 1);
+      else location.reload();
     }
 
     function updateCounters() {
@@ -375,12 +409,26 @@
       void el.offsetWidth;              // บังคับให้เบราว์เซอร์คำนวณใหม่ ไม่งั้น transition ไม่ทำงาน
       el.classList.remove('out');
     }
-    setTimeout(function () {            // 20 วิแล้วยังไม่มา = ปล่อยผู้ใช้ออกจากฉากโหลด
+    /**
+     * เดิมตั้งไว้ 20 วิแล้วประกาศว่า "โหลดข้อมูลนานผิดปกติ" ทันที
+     * ซึ่งเร็วเกินไป — GAS ตื่นช้า + LIFF ล็อกอิน + เน็ตมือถือ รวมกันเกิน 20 วิได้ง่าย
+     * ตอนนี้แค่บอกว่าช้ากว่าปกติ แล้วรอต่อ จะยอมแพ้จริงที่ 60 วิ
+     */
+    let SLOW_T = null, GIVEUP_T = null;
+    function stillLoading() {
       const el = document.getElementById('loading');
-      if (el && el.style.display !== 'none' && !el.classList.contains('out')) {
-        showError('โหลดข้อมูลนานผิดปกติ');
-      }
-    }, 20000);
+      return el && el.style.display !== 'none' && !el.classList.contains('out');
+    }
+    function armLoadTimers() {
+      clearTimeout(SLOW_T); clearTimeout(GIVEUP_T);
+      SLOW_T = setTimeout(function () {
+        if (stillLoading()) setLoadText('ช้ากว่าปกติ กำลังโหลดอยู่ อย่าเพิ่งปิดหน้านี้');
+      }, 15000);
+      GIVEUP_T = setTimeout(function () {
+        if (stillLoading()) showError('โหลดข้อมูลไม่สำเร็จ');
+      }, 60000);
+    }
+    armLoadTimers();
 
     // ===== ปุ่มลอย (FAB): ไปหน้าบันทึกเอกสารใหม่ =====
     const NEW_DOC_URL = "https://liff.line.me/2010379470-zXEdvOrD";
