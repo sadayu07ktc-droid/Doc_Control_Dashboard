@@ -128,6 +128,28 @@
     @keyframes dots{ 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
     @media (prefers-reduced-motion:reduce){ .stack i,.ltx::after{ animation:none } .stack i{ opacity:1;transform:none } }
 
+    /* ===== หน้าใส่รหัสผ่าน ===== */
+    #lock{ position:fixed; inset:0; background:var(--bg-gradient); z-index:4000; display:none;
+           flex-direction:column; align-items:center; justify-content:center; padding:24px; color:#fff; }
+    #lock.show{ display:flex; }
+    .lk-ic{ width:62px; height:62px; border-radius:20px; background:rgba(255,255,255,.18); display:flex;
+            align-items:center; justify-content:center; margin-bottom:16px; }
+    .lk-t{ font-size:19px; font-weight:600; }
+    .lk-s{ font-size:12.5px; font-weight:300; opacity:.85; margin-top:5px; text-align:center; line-height:1.6; }
+    .lk-dots{ display:flex; gap:13px; margin:26px 0 4px; }
+    .lk-dots i{ width:14px; height:14px; border-radius:50%; background:rgba(255,255,255,.28); transition:.18s; }
+    .lk-dots i.on{ background:#fff; transform:scale(1.14); }
+    .lk-err{ font-size:12.5px; color:#FFD600; height:18px; margin-top:8px; font-weight:400; }
+    @keyframes shake{ 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }
+    .lk-dots.bad{ animation:shake .35s; }
+    .pad{ display:grid; grid-template-columns:repeat(3,72px); gap:13px; margin-top:14px; }
+    .pad button{ height:62px; border:none; border-radius:50%; background:rgba(255,255,255,.16); color:#fff;
+                 font-family:'Prompt'; font-size:22px; font-weight:400; cursor:pointer; transition:.12s; }
+    .pad button:hover{ background:rgba(255,255,255,.27); }
+    .pad button:active{ transform:scale(.92); }
+    .pad button.fn{ font-size:13px; background:transparent; }
+    .pad button.fn:hover{ background:rgba(255,255,255,.14); }
+
     /* แผงรายละเอียด */
     .sheet{ position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:2000; display:none;
             align-items:flex-end; justify-content:center; padding:0; }
@@ -183,6 +205,17 @@
     <p class="ltx" id="loadTx">กำลังโหลดข้อมูลประกันภัย</p>
   </div>
 
+  <div id="lock" role="dialog" aria-label="ใส่รหัสผ่าน">
+    <div class="lk-ic">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+    <div class="lk-t" id="lkTitle">ใส่รหัสผ่าน</div>
+    <div class="lk-s" id="lkSub">ข้อมูลประกันภัยรถของกลุ่มบริษัท</div>
+    <div class="lk-dots" id="lkDots"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="lk-err" id="lkErr"></div>
+    <div class="pad" id="lkPad"></div>
+  </div>
+
   <div class="wrap">
     <div class="head">
       <h2>
@@ -212,6 +245,10 @@
       <button onclick="openSettings()">
         <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         ตั้งค่าแจ้งเตือน
+      </button>
+      <button onclick="changePin()">
+        <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        เปลี่ยนรหัส
       </button>
       <button onclick="exportReport()">
         <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -297,14 +334,136 @@
   }
   armLoadTimers();
 
+  // ================= รหัสผ่าน 6 หลัก =================
+  const PIN_KEY = 'ssb_ins_pin_ok';
+  const PIN_HOURS = 12;              // ผ่านแล้วจำไว้ 12 ชม. จะได้ไม่ต้องกดทุกครั้ง
+  let PIN_BUF = '', PIN_MODE = 'check', PIN_TMP = '', PIN_TRY = 0;
+
+  function pinRemembered(){
+    try{
+      const t = Number(localStorage.getItem(PIN_KEY) || 0);
+      return t && (Date.now() - t) < PIN_HOURS * 3600 * 1000;
+    }catch(e){ return false; }
+  }
+  function rememberPin(){ try{ localStorage.setItem(PIN_KEY, String(Date.now())); }catch(e){} }
+
+  function drawPad(){
+    const keys = ['1','2','3','4','5','6','7','8','9','ล้าง','0','ลบ'];
+    document.getElementById('lkPad').innerHTML = keys.map(k=>{
+      const fn = (k === 'ล้าง' || k === 'ลบ');
+      return '<button class="' + (fn ? 'fn' : '') + '" onclick="pinKey(\'' + k + '\')">' + k + '</button>';
+    }).join('');
+  }
+
+  function pinDots(){
+    document.querySelectorAll('#lkDots i').forEach((d,i)=> d.classList.toggle('on', i < PIN_BUF.length));
+  }
+  function pinErr(msg){
+    document.getElementById('lkErr').textContent = msg || '';
+    if(msg){
+      const d = document.getElementById('lkDots');
+      d.classList.remove('bad'); void d.offsetWidth; d.classList.add('bad');
+    }
+  }
+
+  function pinKey(k){
+    if(k === 'ล้าง'){ PIN_BUF = ''; pinDots(); pinErr(''); return; }
+    if(k === 'ลบ'){ PIN_BUF = PIN_BUF.slice(0,-1); pinDots(); pinErr(''); return; }
+    if(PIN_BUF.length >= 6) return;
+    PIN_BUF += k; pinDots(); pinErr('');
+    if(PIN_BUF.length === 6) setTimeout(pinSubmit, 140);
+  }
+
+  async function pinSubmit(){
+    const pin = PIN_BUF;
+    if(PIN_MODE === 'set'){                       // ตั้งรหัสครั้งแรก: ใส่สองรอบให้ตรงกัน
+      if(!PIN_TMP){
+        PIN_TMP = pin; PIN_BUF = ''; pinDots();
+        document.getElementById('lkTitle').textContent = 'ใส่รหัสอีกครั้ง';
+        document.getElementById('lkSub').textContent = 'เพื่อยืนยันว่าจำรหัสถูก';
+        return;
+      }
+      if(PIN_TMP !== pin){
+        PIN_TMP = ''; PIN_BUF = ''; pinDots();
+        document.getElementById('lkTitle').textContent = 'ตั้งรหัสผ่านใหม่';
+        pinErr('รหัสสองครั้งไม่ตรงกัน เริ่มใหม่');
+        return;
+      }
+      const r = await post({ action:'ins_pin_set', pin:pin });
+      if(r.status === 'success'){ rememberPin(); unlock(); }
+      else { PIN_TMP=''; PIN_BUF=''; pinDots(); pinErr(r.message || 'ตั้งรหัสไม่สำเร็จ'); }
+      return;
+    }
+
+    const r = await post({ action:'ins_pin_check', pin:pin });
+    PIN_BUF = ''; pinDots();
+    if(r.status === 'success'){ PIN_TRY = 0; rememberPin(); unlock(); return; }
+    PIN_TRY++;
+    pinErr((r.message || 'รหัสไม่ถูกต้อง') + (PIN_TRY >= 3 ? ' · ลองผิด ' + PIN_TRY + ' ครั้ง' : ''));
+  }
+
+  function unlock(){
+    document.getElementById('lock').classList.remove('show');
+    startApp();
+  }
+
+  /** เปลี่ยนรหัสผ่าน — ต้องใส่รหัสเดิมให้ถูกก่อน */
+  async function changePin(){
+    const a = await Swal.fire({ title:'รหัสเดิม', input:'password', inputAttributes:{ inputmode:'numeric', maxlength:6 },
+      showCancelButton:true, confirmButtonText:'ถัดไป', cancelButtonText:'ยกเลิก', confirmButtonColor:'#6200EA' });
+    if(!a.isConfirmed) return;
+    const b = await Swal.fire({ title:'รหัสใหม่ 6 หลัก', input:'password', inputAttributes:{ inputmode:'numeric', maxlength:6 },
+      showCancelButton:true, confirmButtonText:'บันทึก', cancelButtonText:'ยกเลิก', confirmButtonColor:'#6200EA' });
+    if(!b.isConfirmed) return;
+    if(!/^\d{6}$/.test(String(b.value||''))){ Swal.fire('รหัสไม่ถูกต้อง','ต้องเป็นตัวเลข 6 หลัก','warning'); return; }
+    const r = await post({ action:'ins_pin_set', old_pin:a.value, pin:b.value });
+    if(r.status === 'success'){
+      rememberPin();
+      Swal.fire({ title:'เปลี่ยนรหัสแล้ว', icon:'success', confirmButtonColor:'#6200EA' });
+    } else Swal.fire('เปลี่ยนไม่สำเร็จ', r.message || '', 'error');
+  }
+
   // ---------- เริ่มทำงาน ----------
   window.onload = function(){
+    drawPad();
+    document.addEventListener('keydown', function(e){
+      if(!document.getElementById('lock').classList.contains('show')) return;
+      if(/^[0-9]$/.test(e.key)) pinKey(e.key);
+      else if(e.key === 'Backspace') pinKey('ลบ');
+      else if(e.key === 'Escape') pinKey('ล้าง');
+    });
+
     liff.init({ liffId: MY_LIFF_ID }).then(()=>{
       if(liff.isLoggedIn()){
-        liff.getProfile().then(p=>{ UID = p.userId; boot(); }).catch(()=>boot());
+        liff.getProfile().then(p=>{ UID = p.userId; gate(); }).catch(()=>gate());
       } else { liff.login(); }
-    }).catch(()=>boot());       // เปิดนอก LINE ก็ยังดูข้อมูลได้
+    }).catch(()=>gate());       // เปิดนอก LINE ก็ยังดูข้อมูลได้ แต่ยังต้องผ่านรหัส
   };
+
+  /** ตัดสินว่าจะขอรหัส ตั้งรหัส หรือเข้าได้เลย */
+  function gate(){
+    if(pinRemembered()){ startApp(); return; }
+    api('ins_pin_state').then(r=>{
+      const lock = document.getElementById('lock');
+      if(r && r.set === false){
+        PIN_MODE = 'set';
+        document.getElementById('lkTitle').textContent = 'ตั้งรหัสผ่านใหม่';
+        document.getElementById('lkSub').innerHTML = 'ยังไม่มีใครตั้งรหัสสำหรับเมนูนี้<br>ตั้งเลข 6 หลักที่จะใช้ร่วมกันในทีม';
+      }
+      document.getElementById('load').style.display = 'none';
+      lock.classList.add('show');
+    }).catch(()=>{            // ถามหลังบ้านไม่ได้ ก็อย่าปล่อยให้เข้าไปเฉยๆ
+      document.getElementById('load').style.display = 'none';
+      document.getElementById('lock').classList.add('show');
+      pinErr('เชื่อมต่อระบบไม่ได้ ลองใหม่อีกครั้ง');
+    });
+  }
+
+  function startApp(){
+    document.getElementById('load').style.display = 'flex';
+    armLoadTimers();
+    boot(1);
+  }
 
   function boot(attempt){
     attempt = attempt || 1;
