@@ -70,6 +70,14 @@
                    background:linear-gradient(135deg,var(--primary),var(--secondary)); }
     .sw-ft button:active{ transform:scale(.98); }
 
+    /* แจ้งผลสั้น ๆ ท้ายจอ ใช้ตอนกดปุ่มอัปเดต */
+    .toast{ position:fixed; left:50%; bottom:26px; transform:translate(-50%,14px); z-index:90;
+            background:#2B2340; color:#fff; border-radius:13px; padding:11px 18px; font-size:12.5px;
+            font-weight:400; box-shadow:0 10px 24px rgba(0,0,0,.3); opacity:0; pointer-events:none;
+            transition:.25s; display:flex; align-items:center; gap:8px; max-width:88vw; }
+    .toast.show{ opacity:1; transform:translate(-50%,0); }
+    .toast.bad{ background:#B3261E; }
+
     .gap-bar.fb{ border-left-color:var(--primary); }
     .gap-bar.fb .gap-ic{ background:#EDE7F6; color:var(--primary); }
     .gap-bar.fb .gap-n{ color:var(--primary); }
@@ -347,6 +355,8 @@
     <div class="glist" id="groups"></div>
   </div>
 
+  <div class="toast" id="toast"></div>
+
   <div class="sw-bg" id="swBg" onclick="if(event.target===this) closeSweep()">
     <div class="sw">
       <div class="sw-hd">
@@ -616,6 +626,7 @@
       const want = new URLSearchParams(location.search).get('g');   // ลิงก์จากการ์ด LINE
       if(want) setTimeout(()=>openGroup(want), 350);
       else setTimeout(maybeShowSweep, 500);   // ให้หน้าโหลดเสร็จก่อนค่อยเด้ง
+      return true;
     }).catch(()=>{
       if(attempt < 3){                       // ลองใหม่เอง ถ่วงเวลาเพิ่มขึ้นทีละรอบ
         setLoadTx('เชื่อมต่อไม่ติด กำลังลองใหม่ (' + attempt + '/3)…');
@@ -904,14 +915,55 @@
     setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
   }
 
-  // ปุ่มอัปเดต: ดึงข้อมูลใหม่จากชีตทันที ไม่ต้องรอรอบกวาด
+  function toast(msg, bad){
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (bad ? ' bad' : '');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=>{ el.className = 'toast' + (bad ? ' bad' : ''); }, 4200);
+  }
+
+  /**
+   * ปุ่มอัปเดต — สั่งให้เครื่องในออฟฟิศกวาดโฟลเดอร์แชร์เดี๋ยวนี้ แล้วรอผล
+   * Apps Script รันบนเครื่อง Google เข้า \\10.0.0.9 ไม่ได้ จึงต้องฝากคำสั่งไว้
+   * ให้ตัวรับคำสั่ง (ins_watch.js) ที่รันค้างในออฟฟิศมาหยิบไปทำ
+   * ถ้าเครื่องนั้นไม่ได้เปิดอยู่ ก็ยังดึงข้อมูลล่าสุดจากระบบให้ และบอกตรง ๆ ว่ากวาดไม่ได้
+   */
   var RFR_BUSY = false;
   function refreshNow(){
     if(RFR_BUSY) return;
     RFR_BUSY = true;
     const btn = document.getElementById('rfrBtn');
     btn.classList.add('spin');
-    boot(1).finally(()=>{ btn.classList.remove('spin'); RFR_BUSY = false; });
+    const before = (SWEEP && SWEEP.at) || '';
+    const done = (msg, bad) => { btn.classList.remove('spin'); RFR_BUSY = false; if(msg) toast(msg, bad); };
+
+    post({ action:'ins_sweep_request' }).then(r=>{
+      if(r.status !== 'success') throw new Error(r.message || '');
+      if(!r.worker){
+        // ไม่มีเครื่องรับคำสั่ง กวาดใหม่ไม่ได้ แต่ดึงของล่าสุดมาให้ได้
+        return boot(1).then(()=> done('เครื่องในออฟฟิศไม่ได้เปิดรับคำสั่ง ดึงข้อมูลล่าสุดให้แทน', true));
+      }
+      toast('สั่งกวาดโฟลเดอร์แล้ว กำลังรอผล…');
+      return waitSweep(before, 24).then(changed=>
+        boot(1).then(()=> done(changed ? '' : 'กวาดเสร็จแล้วแต่ยังไม่มีไฟล์ใหม่')));
+    }).catch(()=>{
+      boot(1).then(()=> done('เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง', true))
+             .catch(()=> done('เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง', true));
+    });
+  }
+
+  /** ถามซ้ำ ๆ จนผลการกวาดเปลี่ยนเวลา หรือครบรอบที่กำหนด (ประมาณ 2 นาที) */
+  function waitSweep(before, left){
+    if(left <= 0) return Promise.resolve(false);
+    return new Promise(res => setTimeout(res, 5000))
+      .then(()=> api('ins_sweep_state'))
+      .then(s=>{
+        const at = (s && s.last && s.last.at) || '';
+        if(at && at !== before) return true;
+        return waitSweep(before, left - 1);
+      })
+      .catch(()=> waitSweep(before, left - 1));
   }
 
   function openMissing(){
