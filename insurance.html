@@ -18,9 +18,20 @@
     .li{ vertical-align:-2px; flex:none; }
 
     @keyframes fadeInDown{ from{opacity:0;transform:translateY(-18px)} to{opacity:1;transform:none} }
-    .head{ text-align:center; color:#fff; margin:10px 0 18px; animation:fadeInDown .6s ease-out; }
+    .head{ position:relative; text-align:center; color:#fff; margin:10px 0 18px; animation:fadeInDown .6s ease-out; }
     .head h2{ margin:0; font-size:22px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:9px; }
     .head p{ margin:4px 0 0; font-size:12px; opacity:.85; font-weight:300; }
+    .rfr{ position:absolute; top:14px; right:14px; width:38px; height:38px; border:none; border-radius:12px;
+          background:rgba(255,255,255,.18); color:#fff; cursor:pointer; display:flex; align-items:center;
+          justify-content:center; transition:.2s; -webkit-tap-highlight-color:transparent; }
+    .rfr:hover{ background:rgba(255,255,255,.3); }
+    .rfr:active{ transform:scale(.92); }
+    .rfr.spin svg{ animation:rfrSpin .8s linear infinite; }
+    @keyframes rfrSpin{ to{ transform:rotate(360deg) } }
+
+    .gap-bar.fb{ border-left-color:var(--primary); }
+    .gap-bar.fb .gap-ic{ background:#EDE7F6; color:var(--primary); }
+    .gap-bar.fb .gap-n{ color:var(--primary); }
 
     .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:15px; }
     .kpi{ background:#fff; border-radius:16px; padding:13px 10px; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,.06);
@@ -226,6 +237,9 @@
         ประกันภัยรถ
       </h2>
       <p>สมัครใจ + พรบ. · จัดกลุ่มตามเดือนที่หมดอายุ เพื่อต่อพร้อมกัน</p>
+      <button class="rfr" id="rfrBtn" onclick="refreshNow()" title="อัปเดตข้อมูลล่าสุด" aria-label="อัปเดตข้อมูลล่าสุด">
+        <svg class="li" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
+      </button>
     </div>
 
     <div class="cards" id="kpis"></div>
@@ -265,6 +279,15 @@
       </span>
       <div class="gap-tx"><b>รถที่มีกรมธรรม์ไม่ครบ</b><small id="gapSub">กำลังตรวจ…</small></div>
       <span class="gap-n" id="gapN">–</span>
+      <svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+
+    <div class="gap-bar fb" id="fileBar" onclick="openNoFile()">
+      <span class="gap-ic">
+        <svg class="li" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      </span>
+      <div class="gap-tx"><b>ทะเบียนที่ยังไม่มีไฟล์แนบ</b><small id="fileSub">กำลังตรวจ…</small></div>
+      <span class="gap-n" id="fileN">–</span>
       <svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
     </div>
 
@@ -489,12 +512,12 @@
 
   function boot(attempt){
     attempt = attempt || 1;
-    Promise.all([ api('ins_groups'), api('ins_config'), api('ins_list'), api('ins_missing') ]).then(([g, c, l, m])=>{
+    return Promise.all([ api('ins_groups'), api('ins_config'), api('ins_list'), api('ins_missing') ]).then(([g, c, l, m])=>{
       clearTimeout(SLOW_T); clearTimeout(GIVEUP_T);
       GROUPS = g.groups || []; TOTAL = g.total_policies || 0; CFG = (c && c.config) || null;
       ALL_ROWS = (l && l.rows) || [];
       MISSING = (m && m.status === 'success') ? m : null;
-      renderGapBar();
+      renderGapBar(); renderFileBar();
       render(); hideLoad();
       const want = new URLSearchParams(location.search).get('g');   // ลิงก์จากการ์ด LINE
       if(want) setTimeout(()=>openGroup(want), 350);
@@ -609,6 +632,90 @@
       'ขาด พรบ. ' + MISSING.count_missing_compulsory + ' คัน · ขาดประกันภัย ' + MISSING.count_missing_voluntary + ' คัน'
       + ' · จากรถทั้งหมด ' + MISSING.total_vehicles + ' คัน';
     bar.classList.add('show');
+  }
+
+  // ---------- สถานะไฟล์แนบ ----------
+  // เอกสาร PDF ที่ขนส่งส่งมาคือ พรบ. ส่วนประกันภัยมาเป็นไฟล์ Excel
+  // แถบนี้เลยนับเฉพาะ พรบ. เป็นหลัก แต่เปิดดูของประกันภัยได้ด้วย
+  var FTAB = 'พรบ.';
+
+  function noFileRows(type){
+    return ALL_ROWS.filter(r => r.type === type && !r.file_url)
+                   .sort((a, b) => String(a.end_date).localeCompare(String(b.end_date)));
+  }
+
+  function renderFileBar(){
+    const bar = document.getElementById('fileBar');
+    if(!ALL_ROWS.length){ bar.classList.remove('show'); return; }
+    const noC = noFileRows('พรบ.'), noV = noFileRows('สมัครใจ');
+    const totC = ALL_ROWS.filter(r => r.type === 'พรบ.').length;
+    if(!noC.length && !noV.length){ bar.classList.remove('show'); return; }
+    document.getElementById('fileN').textContent = noC.length;
+    document.getElementById('fileSub').textContent =
+      'พรบ. แนบแล้ว ' + (totC - noC.length) + ' จาก ' + totC + ' ฉบับ'
+      + ' · ประกันภัยยังไม่มีไฟล์ ' + noV.length + ' ฉบับ';
+    bar.classList.add('show');
+  }
+
+  function openNoFile(){
+    document.getElementById('sheetTitle').textContent = 'ทะเบียนที่ยังไม่มีไฟล์แนบ';
+    document.getElementById('sheet').classList.add('open');
+    CUR_GROUP = null;
+    renderNoFile();
+  }
+
+  function setFTab(t){ FTAB = t; renderNoFile(); }
+
+  function renderNoFile(){
+    const list = noFileRows(FTAB);
+    const nC = noFileRows('พรบ.').length, nV = noFileRows('สมัครใจ').length;
+    const html = '<div class="mtab">'
+      + '<button class="' + (FTAB === 'พรบ.' ? 'on' : '') + '" onclick="setFTab(\'พรบ.\')">พรบ. (' + nC + ')</button>'
+      + '<button class="' + (FTAB === 'สมัครใจ' ? 'on' : '') + '" onclick="setFTab(\'สมัครใจ\')">ประกันภัย (' + nV + ')</button>'
+      + '</div>'
+      + '<div style="font-size:11.5px;color:#999;font-weight:300;padding:0 4px 8px">'
+      + 'ไฟล์ พรบ. จะถูกแนบอัตโนมัติเมื่อฝ่ายขนส่งวาง PDF ลงโฟลเดอร์แชร์</div>'
+      + (list.length
+          ? list.map(frowHtml).join('')
+          : '<div class="empty">แนบครบทุกฉบับแล้ว</div>')
+      + '<div style="padding:14px 4px 4px">'
+      + '<button class="b-file" style="width:100%;justify-content:center;border:none;border-radius:11px;padding:11px;'
+      + 'font-family:Prompt;font-size:12.5px;font-weight:500;cursor:pointer" onclick="exportNoFile()">'
+      + ICO.up + ' ออกรายงานที่ยังไม่มีไฟล์แนบ</button></div>';
+    document.getElementById('sheetBody').innerHTML = html;
+  }
+
+  function frowHtml(r){
+    return '<div class="mrow">'
+      + '<div class="mm"><b>' + esc(r.plate || '(ยังไม่มีทะเบียน)') + '</b>'
+      + '<small>' + esc([r.brand, r.model].filter(Boolean).join(' ') || 'ไม่ระบุรุ่น')
+      + ' · เล่ม ' + esc(r.policy_no) + '</small></div>'
+      + '<div class="mt2">คุ้มครองถึง<br>' + esc(r.end_label || r.end_date) + '</div>'
+      + '</div>';
+  }
+
+  function exportNoFile(){
+    const head = ['ประเภท','ทะเบียน','จังหวัด','ยี่ห้อ','รุ่น','ปีรถ','เลขตัวถัง','เลขกรมธรรม์','คุ้มครองถึง'];
+    const body = noFileRows('พรบ.').concat(noFileRows('สมัครใจ')).map(r =>
+      [typeLabel(r.type), r.plate, r.province, r.brand, r.model, r.year, r.chassis, r.policy_no, r.end_date]);
+    const html = '<meta charset="utf-8"><table border="1"><tr>' + head.map(h=>'<th>'+h+'</th>').join('')
+      + '</tr>' + body.map(r=>'<tr>' + r.map(c=>'<td>'+esc(c)+'</td>').join('') + '</tr>').join('') + '</table>';
+    const blob = new Blob(['﻿' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ยังไม่มีไฟล์แนบ_' + new Date().toISOString().slice(0,10) + '.xls';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
+  }
+
+  // ปุ่มอัปเดต: ดึงข้อมูลใหม่จากชีตทันที ไม่ต้องรอรอบกวาด
+  var RFR_BUSY = false;
+  function refreshNow(){
+    if(RFR_BUSY) return;
+    RFR_BUSY = true;
+    const btn = document.getElementById('rfrBtn');
+    btn.classList.add('spin');
+    boot(1).finally(()=>{ btn.classList.remove('spin'); RFR_BUSY = false; });
   }
 
   function openMissing(){
