@@ -27,6 +27,11 @@
     .profile-text { text-align: left; }
     .profile-text h3 { margin: 0; font-size: 15px; color: var(--primary); }
     .profile-text p { margin: 2px 0 0 0; font-size: 12px; color: #555; }
+    .profile-text { flex: 1; min-width: 0; }
+    .btn-out { flex: none; border: none; background: #F6F2FB; color: #8A8A8A; border-radius: 12px;
+               padding: 9px 13px; font-family: 'Prompt'; font-size: 12px; font-weight: 500; cursor: pointer;
+               display: flex; align-items: center; gap: 6px; transition: .2s; }
+    .btn-out:hover { background: #FFEBEE; color: #C62828; }
 
     .search-box { position: relative; margin-bottom: 15px; }
     .search-box input { width: 100%; padding: 12px 15px 12px 40px; border-radius: 15px; border: none; font-family: 'Prompt'; box-sizing: border-box; outline: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1);}
@@ -176,6 +181,10 @@
       <p id="systemName">ชื่อในระบบ: -</p>
       <p id="systemDept">แผนก: -</p>
     </div>
+    <button class="btn-out" onclick="logout()" title="ออกจากระบบ">
+      <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      ออกจากระบบ
+    </button>
   </div>
 
   <div class="search-box" id="searchContainer" style="display:none;">
@@ -336,6 +345,29 @@
     function setLoadText(msg) {
       const el = document.getElementById('loadingText');
       if (el) el.textContent = msg;
+    }
+
+    /**
+     * ออกจากระบบ = ออกจาก LINE Login ของหน้านี้ แล้วโหลดใหม่เพื่อให้ล็อกอินใหม่
+     * ล้างของที่เก็บไว้ในเครื่องด้วย จะได้ไม่เหลือร่องรอยของคนก่อนหน้า
+     */
+    async function logout() {
+      const ok = await Swal.fire({
+        title: 'ออกจากระบบ',
+        text: 'ต้องล็อกอิน LINE ใหม่เมื่อเข้าใช้งานครั้งหน้า',
+        icon: 'question', showCancelButton: true,
+        confirmButtonText: 'ออกจากระบบ', cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#C62828', cancelButtonColor: '#9E9E9E'
+      });
+      if (!ok.isConfirmed) return;
+
+      try { localStorage.removeItem('dc_view'); } catch (e) {}
+      try { localStorage.removeItem('ssb_ins_pin_ok'); } catch (e) {}   // ล็อกหน้าประกันด้วย
+      try { if (liff.isLoggedIn()) liff.logout(); } catch (e) {}
+
+      // อยู่ใน LINE จะปิดหน้าต่างไปเลย ส่วนบนเบราว์เซอร์ให้โหลดใหม่เพื่อเข้าหน้าล็อกอิน
+      try { if (liff.isInClient()) { liff.closeWindow(); return; } } catch (e) {}
+      location.replace(location.pathname);
     }
 
     function showError(msg) {
