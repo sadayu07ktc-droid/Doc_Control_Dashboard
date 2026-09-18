@@ -399,15 +399,24 @@
       else location.reload();
     }
 
+    /**
+     * งานที่ยังต้องทำ นับสองแบบรวมกัน
+     *   1. ช่องขั้นตอนเขียนว่า 'รอดำเนินการ' ตรง ๆ  <- เดิมตกหล่นทั้งหมด
+     *   2. เอกสารใกล้หมด/หมดอายุแล้วที่ยังไม่ปิดงาน
+     * เดิมนับแต่ข้อ 2 ทำให้เอกสารที่คนตั้งเป็นรอดำเนินการไว้เอง แต่วันหมดอายุยังปกติ หายไปจากการ์ด
+     */
+    function isPendingDoc(d) {
+      if (String(d.process).trim() === 'รอดำเนินการ') return true;
+      const alert = (d.status === 'ใกล้หมดอายุ' || d.status === 'หมดอายุแล้ว');
+      return alert && d.process !== 'ดำเนินการแล้ว' && d.process !== 'เสร็จสิ้น';
+    }
+
     function updateCounters() {
       document.getElementById('c-all').innerText = allDocs.length;
       document.getElementById('c-warn').innerText = allDocs.filter(d => d.status === 'ใกล้หมดอายุ').length;
       document.getElementById('c-danger').innerText = allDocs.filter(d => d.status === 'หมดอายุแล้ว').length;
       
-      document.getElementById('c-todo').innerText = allDocs.filter(d => 
-        (d.status === 'ใกล้หมดอายุ' || d.status === 'หมดอายุแล้ว') && 
-        (d.process !== 'ดำเนินการแล้ว' && d.process !== 'เสร็จสิ้น')
-      ).length;
+      document.getElementById('c-todo').innerText = allDocs.filter(isPendingDoc).length;
 
       document.getElementById('c-done').innerText = allDocs.filter(d => d.process === 'ดำเนินการแล้ว').length;
     }
@@ -425,7 +434,7 @@
         const matchText = doc.docName.toLowerCase().includes(searchText) || (doc.agency && doc.agency.toLowerCase().includes(searchText));
         let matchBtn = true;
         
-        let isPending = (doc.status === 'ใกล้หมดอายุ' || doc.status === 'หมดอายุแล้ว') && (doc.process !== 'ดำเนินการแล้ว' && doc.process !== 'เสร็จสิ้น');
+        let isPending = isPendingDoc(doc);
 
         if (currentFilter === 'ใกล้หมดอายุ') matchBtn = (doc.status === 'ใกล้หมดอายุ');
         else if (currentFilter === 'หมดอายุแล้ว') matchBtn = (doc.status === 'หมดอายุแล้ว');
