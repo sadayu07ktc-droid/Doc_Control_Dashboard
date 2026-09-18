@@ -239,6 +239,7 @@
     .pad button.fn:hover{ background:rgba(255,255,255,.14); }
 
     /* แผงรายละเอียด */
+    .swal2-container{ z-index:5000 !important; }
     .sheet{ position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:2000; display:none;
             align-items:flex-end; justify-content:center; padding:0; }
     .sheet.open{ display:flex; }
@@ -955,6 +956,27 @@
   }
 
 
+  /**
+   * ปลดล็อกการเลื่อนหน้าจอ เผื่อกล่องโต้ตอบปิดไม่สะอาด
+   * เกิดตอนเปิดกล่องใหม่ทับขณะกล่องเก่ากำลังปิด คลาสที่ล็อก body เลยค้างอยู่
+   * เรียกหลังงานที่มีการเปิด-ปิดกล่องติด ๆ กัน เช่นดาวน์โหลดไฟล์
+   */
+  function unstick(){
+    if(document.querySelector('.swal2-container')) return;   // ยังมีกล่องเปิดอยู่จริง อย่าไปยุ่ง
+    ['swal2-shown','swal2-height-auto','swal2-no-backdrop','swal2-toast-shown'].forEach(function (c) {
+      document.body.classList.remove(c);
+      document.documentElement.classList.remove(c);
+    });
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+    document.documentElement.style.overflow = '';
+  }
+
+  /** เปิดกล่องผลลัพธ์แบบหน่วงหนึ่งเฟรม ให้กล่องก่อนหน้าปิดสนิทก่อน */
+  function swalAfter(opt){
+    setTimeout(function(){ unstick(); Swal.fire(opt); }, 60);
+  }
+
   function toast(msg, bad){
     const el = document.getElementById('toast');
     el.textContent = msg;
@@ -1348,6 +1370,7 @@
     a.href = URL.createObjectURL(blob);
     a.download = outFileName('xls');
     a.click();
+    setTimeout(unstick, 60);
     setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
   }
 
@@ -1364,6 +1387,7 @@
     // รอฟอนต์โหลดก่อน ไม่งั้นตัวหนังสือจะเพี้ยนตอนพิมพ์
     const go = () => setTimeout(()=>{ w.focus(); w.print(); }, 400);
     if(w.document.fonts && w.document.fonts.ready) w.document.fonts.ready.then(go); else w.onload = go;
+    setTimeout(unstick, 60);
   }
 
   let H2C = null;
@@ -1390,6 +1414,7 @@
         a.download = outFileName('jpg');
         a.click();
         stage.innerHTML = '';
+        setTimeout(unstick, 60);
       });
     }).catch(e=> alert('สร้างรูปไม่สำเร็จ: ' + (e.message || '')));
   }
@@ -1853,7 +1878,7 @@
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1500);
     const sum = rows.reduce((a, p) => a + (Number(p.premium_total) || 0), 0);
-    Swal.fire({ title:'ดาวน์โหลดแล้ว',
+    swalAfter({ title:'ดาวน์โหลดแล้ว',
                 html: rows.length + ' รายการ · เบี้ยรวม ' + baht(sum) + ' บาท',
                 icon:'success', confirmButtonColor:'#6200EA' });
   }
@@ -1870,6 +1895,7 @@
     const go = function(){ setTimeout(function(){ w.focus(); w.print(); }, 400); };
     if(w.document.fonts && w.document.fonts.ready) w.document.fonts.ready.then(go); else w.onload = go;
     Swal.close();
+    setTimeout(unstick, 60);
   }
 
   function repJpeg(rows){
@@ -1887,7 +1913,7 @@
         a.download = repFileName('jpg');
         a.click();
         stage.innerHTML = '';
-        Swal.fire({ title:'ดาวน์โหลดแล้ว', html: rows.length + ' รายการ',
+        swalAfter({ title:'ดาวน์โหลดแล้ว', html: rows.length + ' รายการ',
                     icon:'success', confirmButtonColor:'#6200EA' });
       });
     }).catch(function (e) { Swal.fire('สร้างรูปไม่สำเร็จ', e.message || 'ลองใหม่อีกครั้ง', 'error'); });
