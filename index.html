@@ -826,18 +826,37 @@
       });
     }
 
+    const EMPTY_ICON = "<svg class=\"li\" width=\"50\" height=\"50\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 20a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v2\"/><path d=\"m2.6 19.4 2-7A1 1 0 0 1 5.6 12H21a1 1 0 0 1 1 1.2l-1.6 6A2 2 0 0 1 18.5 21H4a2 2 0 0 1-1.4-.6z\"/></svg>";
+
     function renderDocs(docs) {
       const container = document.getElementById('docContainer');
       container.className = 'doc-list view-' + VIEW;
 
       if (docs.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <span style="color:#DDD;display:block;margin-bottom:15px"><svg class="li" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v2"/><path d="m2.6 19.4 2-7A1 1 0 0 1 5.6 12H21a1 1 0 0 1 1 1.2l-1.6 6A2 2 0 0 1 18.5 21H4a2 2 0 0 1-1.4-.6z"/></svg></span>
-            <p>ไม่พบเอกสารที่ค้นหาครับ</p>
-          </div>
-        `; 
-        return; 
+        // แยกให้ชัดว่า "ไม่มีเอกสารเลย" กับ "กรองแล้วไม่เหลือ" คนละเรื่องกัน
+        // เดิมขึ้นว่าไม่พบเอกสารที่ค้นหาทั้งที่ผู้ใช้ไม่ได้ค้นอะไร ดูเหมือนเว็บเสีย
+        const searching = (document.getElementById('searchInput').value || '').trim() !== '';
+        const noneAtAll = allDocs.length === 0;
+        let head, sub = '';
+        if (noneAtAll) {
+          head = ALL_MODE ? 'ไม่มีเอกสารในระบบ' : 'ยังไม่มีเอกสารที่เป็นของคุณ';
+          sub = ALL_MODE ? ''
+              : 'เอกสารจะขึ้นที่นี่เมื่อมีคนระบุชื่อคุณเป็นผู้ดูแลเอกสารนั้น'
+                + (IS_DEV ? '<br>กดปุ่ม “ทุกงาน” เพื่อดูเอกสารของคนอื่น' : '');
+        } else if (searching) {
+          head = 'ไม่พบเอกสารที่ค้นหา';
+          sub = 'ลองพิมพ์คำอื่น หรือล้างช่องค้นหา';
+        } else {
+          head = 'ไม่มีเอกสารในหมวดนี้';
+          sub = 'ทั้งหมดมี ' + allDocs.length + ' ฉบับ กดการ์ด “ทั้งหมด” เพื่อดูทุกรายการ';
+        }
+        container.innerHTML =
+          '<div class="empty-state">'
+          + '<span style="color:#DDD;display:block;margin-bottom:15px">' + EMPTY_ICON + '</span>'
+          + '<p style="font-weight:500;margin:0">' + head + '</p>'
+          + (sub ? '<p style="font-size:12.5px;color:#999;font-weight:300;margin:7px 0 0;line-height:1.7">' + sub + '</p>' : '')
+          + '</div>';
+        return;
       }
     
       if (VIEW === 'list')  { container.innerHTML = docs.map(listHtml).join('');  return; }
