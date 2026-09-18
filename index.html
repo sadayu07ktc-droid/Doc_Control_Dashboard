@@ -301,6 +301,7 @@
 
       <label><svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 13.8"/></svg> สถานะความคืบหน้า</label>
       <select id="processSelect">
+        <option value="กำลังใช้งาน">กำลังใช้งาน (ปกติ ยังไม่ต้องทำอะไร)</option>
         <option value="รอดำเนินการ">รอดำเนินการ</option>
         <option value="ดำเนินการแล้ว">ดำเนินการแล้ว (หยุดแจ้งเตือน)</option>
         <option value="เสร็จสิ้น">เสร็จสิ้น (บันทึกไฟล์ใหม่และเริ่มใช้งานรอบใหม่)</option>
@@ -879,7 +880,7 @@
     function listHtml(doc) {
       const m = docMeta(doc);
       return `
-        <div class="list-row" onclick="openModal(${doc.rowIdx || 0}, '${escapeJs(doc.docName)}', '${m.displayProcess}', '${doc.alertDays || ""}', '${escapeJs(doc.rawData)}')">
+        <div class="list-row" onclick="openModal(${doc.rowIdx || 0}, '${escapeJs(doc.docName)}', '${escapeJs(doc.process || '')}', '${doc.alertDays || ""}', '${escapeJs(doc.rawData)}')">
           <span class="list-dot" style="background:${m.badgeColor}"></span>
           <div class="list-main">
             <b>${doc.docName}</b>
@@ -894,7 +895,7 @@
       const rows = docs.map(doc => {
         const m = docMeta(doc);
         return `
-          <tr onclick="openModal(${doc.rowIdx || 0}, '${escapeJs(doc.docName)}', '${m.displayProcess}', '${doc.alertDays || ""}', '${escapeJs(doc.rawData)}')">
+          <tr onclick="openModal(${doc.rowIdx || 0}, '${escapeJs(doc.docName)}', '${escapeJs(doc.process || '')}', '${doc.alertDays || ""}', '${escapeJs(doc.rawData)}')">
             <td><b>${doc.docName}</b><br><small>${doc.agency || '-'}</small></td>
             <td>${doc.endDate}</td>
             <td style="color:${m.dayColor}; font-weight:600; white-space:nowrap">${m.daysText}</td>
@@ -989,7 +990,7 @@
                 </button>`
               }
             
-              <button class="btn-action btn-update" onclick="openModal(${doc.rowIdx || 0}, '${escapeJs(doc.docName)}', '${displayProcess}', '${doc.alertDays || ""}', '${escapeJs(doc.rawData)}')">
+              <button class="btn-action btn-update" onclick="openModal(${doc.rowIdx || 0}, '${escapeJs(doc.docName)}', '${escapeJs(doc.process || '')}', '${doc.alertDays || ""}', '${escapeJs(doc.rawData)}')">
                 ${LI.pen} อัปเดต
               </button>
             </div>
@@ -1124,7 +1125,10 @@
       currentRowIdx = rowIdx;
       document.getElementById('modalDocName').innerText = docName;
       document.getElementById('newRawData').value = rawData || docName || '';
-      document.getElementById('processSelect').value = (currentProcess === 'กำลังใช้งาน') ? 'รอดำเนินการ' : currentProcess;
+      // ต้องโชว์ค่าจริงจากชีต ห้ามแปลงเป็นอย่างอื่น
+      // เดิมแปลง 'กำลังใช้งาน' เป็น 'รอดำเนินการ' เพราะ dropdown ไม่มีตัวเลือกนั้น
+      // ผลคือเปิดกล่องแล้วกดบันทึก (แม้แก้แค่วันที่) ขั้นตอนงานถูกเปลี่ยนทิ้งโดยที่ไม่ได้ตั้งใจ
+      document.getElementById('processSelect').value = currentProcess || 'กำลังใช้งาน';
     
       document.getElementById('newIssueDate').value = "";
       echoBE('newIssueDate','issueBE'); echoBE('newExpiryDate','expiryBE');
