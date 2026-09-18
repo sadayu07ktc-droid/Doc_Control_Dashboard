@@ -261,6 +261,8 @@
     #a4Stage{ position:fixed; left:-10000px; top:0; }
     .sheet-x{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
               color:#999; cursor:pointer; } .sheet-x:hover{ background:#F4F1F9; color:var(--secondary); }
+    /* display:flex ข้างบนทับ display:none ของแอตทริบิวต์ hidden ต้องเขียนกำกับไว้ ไม่งั้นสั่งซ่อนแล้วไม่หาย */
+    .sheet-x[hidden]{ display:none; }
     .sheet-bd{ overflow-y:auto; padding:8px 12px 20px; }
     .prow{ padding:13px 13px; border-bottom:1px solid #F3EEFA; }
     .prow:hover{ background:#FCFBFE; }
@@ -910,7 +912,9 @@
 
   function openNoFile(){
     document.getElementById('sheetTitle').textContent = 'กรมธรรม์ที่ยังไม่มีไฟล์แนบ';
-    document.getElementById('sheetOut').hidden = true;
+    SHEET_MODE = 'nofile';
+    document.getElementById('sheetOut').hidden = false;
+    closeOut();
     document.getElementById('sheet').classList.add('open');
     CUR_GROUP = null;
     renderNoFile();
@@ -932,7 +936,7 @@
           : '<div class="empty">แนบครบทุกฉบับแล้ว</div>')
       + '<div style="padding:14px 4px 4px">'
       + '<button class="b-file" style="width:100%;justify-content:center;border:none;border-radius:11px;padding:11px;'
-      + 'font-family:Prompt;font-size:12.5px;font-weight:500;cursor:pointer" onclick="exportNoFile()">'
+      + 'font-family:Prompt;font-size:12.5px;font-weight:500;cursor:pointer" onclick="exportSheet()">'
       + ICO.up + ' ออกรายงานที่ยังไม่มีไฟล์แนบ</button></div>';
     document.getElementById('sheetBody').innerHTML = html;
   }
@@ -946,19 +950,6 @@
       + '</div>';
   }
 
-  function exportNoFile(){
-    const head = ['ประเภท','ทะเบียน','จังหวัด','ยี่ห้อ','รุ่น','ปีรถ','เลขตัวถัง','เลขกรมธรรม์','คุ้มครองถึง'];
-    const body = noFileRows('พรบ.').concat(noFileRows('สมัครใจ')).map(r =>
-      [typeLabel(r.type), r.plate, r.province, r.brand, r.model, r.year, r.chassis, r.policy_no, r.end_date]);
-    const html = '<meta charset="utf-8"><table border="1"><tr>' + head.map(h=>'<th>'+h+'</th>').join('')
-      + '</tr>' + body.map(r=>'<tr>' + r.map(c=>'<td>'+esc(c)+'</td>').join('') + '</tr>').join('') + '</table>';
-    const blob = new Blob(['﻿' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'ยังไม่มีไฟล์แนบ_' + new Date().toISOString().slice(0,10) + '.xls';
-    a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
-  }
 
   function toast(msg, bad){
     const el = document.getElementById('toast');
@@ -1093,7 +1084,9 @@
   function openMissing(){
     if(!MISSING) return;
     document.getElementById('sheetTitle').textContent = 'รถที่มีกรมธรรม์ไม่ครบ';
-    document.getElementById('sheetOut').hidden = true;
+    SHEET_MODE = 'missing';
+    document.getElementById('sheetOut').hidden = false;
+    closeOut();
     document.getElementById('sheet').classList.add('open');
     CUR_GROUP = null;
     renderMissing();
@@ -1115,7 +1108,7 @@
           : '<div class="empty">ไม่มีรถที่ขาดในกลุ่มนี้</div>')
       + '<div style="padding:14px 4px 4px">'
       + '<button class="b-file" style="width:100%;justify-content:center;border:none;border-radius:11px;padding:11px;'
-      + 'font-family:Prompt;font-size:12.5px;font-weight:500;cursor:pointer" onclick="exportMissing()">'
+      + 'font-family:Prompt;font-size:12.5px;font-weight:500;cursor:pointer" onclick="exportSheet()">'
       + ICO.up + ' ออกรายงานรถที่ขาดกรมธรรม์</button></div>';
     document.getElementById('sheetBody').innerHTML = html;
   }
@@ -1130,22 +1123,6 @@
       + '</div>';
   }
 
-  function exportMissing(){
-    const m = MISSING;
-    const head = ['ขาดอะไร','ทะเบียน','จังหวัด','ยี่ห้อ','รุ่น','ปีรถ','เลขตัวถัง','ประเภทตัวถัง',
-                  'กรมธรรม์ที่มี','เล่มอ้างอิง','คุ้มครองถึง'];
-    const mk = (arr) => arr.map(c => [typeLabel(c.missing), c.plate, c.province, c.brand, c.model, c.year,
-                  c.chassis, c.body_type, c.has.map(typeLabel).join(' + '), c.ref_policy, c.ref_end]);
-    const body = mk(m.missing_compulsory).concat(mk(m.missing_voluntary));
-    const html = '<meta charset="utf-8"><table border="1"><tr>' + head.map(h=>'<th>'+h+'</th>').join('')
-      + '</tr>' + body.map(r=>'<tr>' + r.map(c=>'<td>'+esc(c)+'</td>').join('') + '</tr>').join('') + '</table>';
-    const blob = new Blob(['\ufeff' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'รถที่ขาดกรมธรรม์_' + new Date().toISOString().slice(0,10) + '.xls';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    Swal.fire({ title:'ดาวน์โหลดแล้ว', html: body.length + ' คัน', icon:'success', confirmButtonColor:'#6200EA' });
-  }
 
   let QT = null;
   function onSearch(){
@@ -1192,7 +1169,13 @@
   }
   document.addEventListener('click', closeOut);
 
-  /** คอลัมน์ในใบรายงาน — ใช้ร่วมกันทั้ง Excel และ A4 จะได้ไม่หลุดกัน */
+  /**
+   * หน้าต่างรายละเอียดใช้ร่วมกัน 3 แบบ ปุ่มส่งออกมุมขวาบนต้องรู้ว่ากำลังดูอะไรอยู่
+   * ไม่งั้นกดแล้วได้รายงานของกลุ่มที่เปิดค้างไว้ก่อนหน้า (เคยพลาดมาแล้ว)
+   */
+  var SHEET_MODE = 'group';   // group | nofile | missing
+
+  /** คอลัมน์ของใบรายงานแต่ละแบบ — ใช้ร่วมกันทั้ง Excel และ A4 จะได้ไม่หลุดกัน */
   const OUT_COLS = [
     ['ลำดับ',       (p,i) => i + 1],
     ['ทะเบียน',     p => p.plate || '-'],
@@ -1204,41 +1187,86 @@
     ['เบี้ย (บาท)', p => baht(p.premium_total)],
     ['สถานะ',       p => p.status === 'renewed' ? 'ต่อแล้ว' : 'ยังไม่ต่อ']
   ];
+  const NOFILE_COLS = [
+    ['ลำดับ',       (p,i) => i + 1],
+    ['ประเภท',      p => typeLabel(p.type)],
+    ['ทะเบียน',     p => p.plate || '-'],
+    ['จังหวัด',     p => p.province || '-'],
+    ['ยี่ห้อ / รุ่น', p => [p.brand, p.model].filter(Boolean).join(' ') || '-'],
+    ['เลขตัวถัง',   p => p.chassis || '-'],
+    ['เลขกรมธรรม์', p => p.policy_no || '-'],
+    ['คุ้มครองถึง', p => p.end_label || p.end_date || '-']
+  ];
+  const MISSING_COLS = [
+    ['ลำดับ',       (c,i) => i + 1],
+    ['ขาดอะไร',     c => typeLabel(c.missing)],
+    ['ทะเบียน',     c => c.plate || '-'],
+    ['จังหวัด',     c => c.province || '-'],
+    ['ยี่ห้อ / รุ่น', c => [c.brand, c.model].filter(Boolean).join(' ') || '-'],
+    ['เลขตัวถัง',   c => c.chassis || '-'],
+    ['ที่มีอยู่',    c => (c.has || []).map(typeLabel).join(' + ') || '-'],
+    ['เล่มอ้างอิง',  c => c.ref_policy || '-'],
+    ['คุ้มครองถึง', c => c.ref_end_label || c.ref_end || '-']
+  ];
 
-  function outTitle(){
+  /** ใบรายงานของหน้าต่างที่เปิดอยู่ตอนนี้ */
+  function sheetSpec(){
+    if(SHEET_MODE === 'nofile'){
+      const rows = noFileRows('พรบ.').concat(noFileRows('สมัครใจ'));
+      return { head:'กรมธรรม์ที่ยังไม่มีไฟล์แนบ',
+               sub:'พรบ. ' + noFileRows('พรบ.').length + ' ฉบับ · ประกันภัย ' + noFileRows('สมัครใจ').length + ' ฉบับ',
+               cols:NOFILE_COLS, rows:rows, file:'กรมธรรม์ที่ยังไม่มีไฟล์แนบ', stats:false };
+    }
+    if(SHEET_MODE === 'missing'){
+      const m = MISSING || {};
+      const rows = (m.missing_compulsory || []).concat(m.missing_voluntary || []);
+      return { head:'รถที่มีกรมธรรม์ไม่ครบ',
+               sub:'ขาด พรบ. ' + (m.count_missing_compulsory || 0) + ' คัน · ขาดประกันภัย '
+                   + (m.count_missing_voluntary || 0) + ' คัน · จากรถทั้งหมด ' + (m.total_vehicles || 0) + ' คัน',
+               cols:MISSING_COLS, rows:rows, file:'รถที่มีกรมธรรม์ไม่ครบ', stats:false };
+    }
     const g = CUR_G || {};
-    return typeLabel(g.type || '') + ' รอบ ' + (g.month_label || '');
+    return { head:'รายชื่อรถที่ต้องต่อ' + typeLabel(g.type || ''),
+             sub:'รอบเดือน ' + (g.month_label || '') + ' · กำหนดหมดอายุ ' + (g.end_label || g.month_label || ''),
+             cols:OUT_COLS, rows:CUR_ROWS,
+             file:'รายชื่อรถ_' + typeLabel(g.type || '') + '_' + (g.month_label || ''), stats:true };
   }
+
   function outFileName(ext){
-    const g = CUR_G || {};
-    return ('รายชื่อรถ_' + typeLabel(g.type || '') + '_' + (g.month_label || '')).replace(/\s/g, '') + '.' + ext;
+    return String(sheetSpec().file).replace(/\s/g, '') + '.' + ext;
   }
 
   /** ใบ A4 แนวตั้ง 794x1123 px (96dpi) จัดหัว-ตาราง-ท้ายให้พร้อมพิมพ์ */
   function a4Html(){
-    const g = CUR_G || {};
-    const rows = CUR_ROWS;
+    const sp = sheetSpec();
+    const rows = sp.rows || [];
+    const cols = sp.cols;
     const left = rows.filter(p => p.status !== 'renewed').length;
     const sum  = rows.reduce((a, p) => a + (Number(p.premium_total) || 0), 0);
     const today = new Date().toLocaleDateString('th-TH', { day:'numeric', month:'long', year:'numeric' });
 
-    const th = OUT_COLS.map(c => '<th>' + c[0] + '</th>').join('');
+    const th = cols.map(c => '<th>' + c[0] + '</th>').join('');
     const tb = rows.map((p, i) => '<tr' + (p.status === 'renewed' ? ' class="ok"' : '') + '>'
-      + OUT_COLS.map((c, ci) => '<td class="c' + ci + '">' + esc(c[1](p, i)) + '</td>').join('') + '</tr>').join('');
+      + cols.map((c, ci) => '<td class="c' + ci + '">' + esc(c[1](p, i)) + '</td>').join('') + '</tr>').join('');
+
+    // ใบที่ไม่เกี่ยวกับการต่ออายุ ไม่ต้องมีแถบสรุปเบี้ย/ต่อแล้ว เพราะไม่มีความหมาย
+    const stats = sp.stats
+      ? '<div class="sm">'
+        + '<div><b>' + rows.length + '</b><span>ฉบับทั้งหมด</span></div>'
+        + '<div><b>' + left + '</b><span>ยังไม่ต่อ</span></div>'
+        + '<div><b>' + (rows.length - left) + '</b><span>ต่อแล้ว</span></div>'
+        + '<div><b>' + baht(sum) + '</b><span>เบี้ยรวม (บาท)</span></div>'
+        + '</div>'
+      : '<div class="sm"><div><b>' + rows.length + '</b><span>รายการทั้งหมด</span></div></div>';
 
     return ''
       + '<div class="page">'
       +   '<div class="hd">'
-      +     '<div><div class="t">รายชื่อรถที่ต้องต่อ' + esc(typeLabel(g.type || '')) + '</div>'
-      +     '<div class="s">รอบเดือน ' + esc(g.month_label || '') + ' · กำหนดหมดอายุ ' + esc(g.end_label || g.month_label || '') + '</div></div>'
+      +     '<div><div class="t">' + esc(sp.head) + '</div>'
+      +     '<div class="s">' + esc(sp.sub) + '</div></div>'
       +     '<div class="co">SUKSOMBOON GROUP<br><span>ออกรายงาน ' + esc(today) + '</span></div>'
       +   '</div>'
-      +   '<div class="sm">'
-      +     '<div><b>' + rows.length + '</b><span>ฉบับทั้งหมด</span></div>'
-      +     '<div><b>' + left + '</b><span>ยังไม่ต่อ</span></div>'
-      +     '<div><b>' + (rows.length - left) + '</b><span>ต่อแล้ว</span></div>'
-      +     '<div><b>' + baht(sum) + '</b><span>เบี้ยรวม (บาท)</span></div>'
-      +   '</div>'
+      +   stats
       +   '<table><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table>'
       +   '<div class="ft"><div>ผู้จัดทำ ..................................................</div>'
       +   '<div>ผู้อนุมัติ ..................................................</div></div>'
@@ -1273,22 +1301,40 @@
     +   ' font-size:11px; color:#555; font-weight:300; }'
     + '@media print{ body{ background:#fff; } .page{ margin:0; } }';
 
+  /** ถามรูปแบบไฟล์แล้วส่งออกตามหน้าต่างที่เปิดอยู่ ใช้กับปุ่มล่างของทุกหน้าต่าง */
+  function exportSheet(){
+    const sp = sheetSpec();
+    if(!(sp.rows || []).length){ Swal.fire('ไม่มีข้อมูล','ยังไม่มีรายการให้ออกรายงาน','info'); return; }
+    Swal.fire({
+      title: 'ออกรายงาน ' + sp.rows.length + ' รายการ',
+      html: '<div style="font-size:13px;color:#888;font-weight:300">เลือกรูปแบบไฟล์</div>',
+      showDenyButton: true, showCancelButton: true,
+      confirmButtonText: 'Excel', denyButtonText: 'PDF', cancelButtonText: 'JPEG',
+      confirmButtonColor: '#1D6F42', denyButtonColor: '#B3261E', cancelButtonColor: '#6200EA'
+    }).then(function (pick) {
+      if(pick.isConfirmed) return outExcel();
+      if(pick.isDenied)    return outPdf();
+      if(pick.dismiss === Swal.DismissReason.cancel) return outJpeg();
+    });
+  }
+
   function exportGroup(kind, ev){
     if(ev) ev.stopPropagation();
     closeOut();
-    if(!CUR_ROWS.length) return;
+    if(!(sheetSpec().rows || []).length) return;
     if(kind === 'excel') return outExcel();
     if(kind === 'pdf')   return outPdf();
     if(kind === 'jpeg')  return outJpeg();
   }
 
   function outExcel(){
-    const rows = CUR_ROWS;
-    const head = OUT_COLS.map(c => '<th>' + c[0] + '</th>').join('');
+    const sp = sheetSpec();
+    const rows = sp.rows || [];
+    const head = sp.cols.map(c => '<th>' + c[0] + '</th>').join('');
     const body = rows.map((p, i) =>
-      '<tr>' + OUT_COLS.map(c => '<td>' + esc(c[1](p, i)) + '</td>').join('') + '</tr>').join('');
+      '<tr>' + sp.cols.map(c => '<td>' + esc(c[1](p, i)) + '</td>').join('') + '</tr>').join('');
     const html = '<meta charset="utf-8">'
-      + '<h3>' + esc(outTitle()) + '</h3>'
+      + '<h3>' + esc(sheetSpec().head) + '</h3>'
       + '<table border="1"><tr>' + head + '</tr>' + body + '</table>';
     const blob = new Blob(['﻿' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
     const a = document.createElement('a');
@@ -1304,7 +1350,7 @@
     const w = window.open('', '_blank');
     if(!w) return alert('เบราว์เซอร์บล็อกหน้าต่างใหม่ไว้ กรุณาอนุญาต popup แล้วลองอีกครั้ง');
     w.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8">'
-      + '<title>' + esc(outTitle()) + '</title>'
+      + '<title>' + esc(sheetSpec().head) + '</title>'
       + '<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">'
       + '<style>' + A4_CSS + '</style></head><body>' + a4Html() + '</body></html>');
     w.document.close();
@@ -1344,7 +1390,7 @@
   // ---------- รายละเอียดกลุ่ม ----------
   let CUR_GROUP = null, CUR_G = null, CUR_ROWS = [];
   function openGroup(key){
-    CUR_GROUP = key; CUR_G = null; CUR_ROWS = [];
+    CUR_GROUP = key; CUR_G = null; CUR_ROWS = []; SHEET_MODE = 'group';
     document.getElementById('sheetOut').hidden = true;
     closeOut();
     document.getElementById('sheetTitle').textContent = 'กำลังโหลด…';
