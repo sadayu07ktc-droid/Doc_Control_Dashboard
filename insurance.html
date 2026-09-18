@@ -372,7 +372,7 @@
       <span class="gap-ic">
         <svg class="li" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
       </span>
-      <div class="gap-tx"><b>ทะเบียนที่ยังไม่มีไฟล์แนบ</b><small id="fileSub">กำลังตรวจ…</small></div>
+      <div class="gap-tx"><b>กรมธรรม์ที่ยังไม่มีไฟล์แนบ</b><small id="fileSub">กำลังตรวจ…</small></div>
       <span class="gap-n" id="fileN">–</span>
       <svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
     </div>
@@ -895,17 +895,21 @@
     const bar = document.getElementById('fileBar');
     if(!ALL_ROWS.length){ bar.classList.remove('show'); return; }
     const noC = noFileRows('พรบ.'), noV = noFileRows('สมัครใจ');
-    const totC = ALL_ROWS.filter(r => r.type === 'พรบ.').length;
     if(!noC.length && !noV.length){ bar.classList.remove('show'); return; }
-    document.getElementById('fileN').textContent = noC.length;
+
+    // ตัวเลขใหญ่ต้องเป็นยอดรวมทั้งสองประเภท ไม่ใช่เฉพาะ พรบ.
+    // และนับเป็น "ฉบับ" เพราะรถคันเดียวมีได้สองกรมธรรม์ ส่วนจำนวนคันบอกแยกไว้ในบรรทัดล่าง
+    const total = noC.length + noV.length;
+    const cars = new Set(noC.concat(noV).map(r => r.plate || r.chassis)).size;
+    document.getElementById('fileN').textContent = total;
     document.getElementById('fileSub').textContent =
-      'พรบ. แนบแล้ว ' + (totC - noC.length) + ' จาก ' + totC + ' ฉบับ'
-      + ' · ประกันภัยยังไม่มีไฟล์ ' + noV.length + ' ฉบับ';
+      'พรบ. ' + noC.length + ' ฉบับ · ประกันภัย ' + noV.length + ' ฉบับ'
+      + ' · รวม ' + cars + ' คัน';
     bar.classList.add('show');
   }
 
   function openNoFile(){
-    document.getElementById('sheetTitle').textContent = 'ทะเบียนที่ยังไม่มีไฟล์แนบ';
+    document.getElementById('sheetTitle').textContent = 'กรมธรรม์ที่ยังไม่มีไฟล์แนบ';
     document.getElementById('sheetOut').hidden = true;
     document.getElementById('sheet').classList.add('open');
     CUR_GROUP = null;
