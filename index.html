@@ -129,6 +129,18 @@
     .view-btn.act:hover { background: rgba(255,255,255,0.3); }
     .view-btn.act.armed { background: #FFD600; color: #4a3b00; font-weight: 600; }
     .view-btn[hidden] { display: none; }
+    /* dropdown เลือกคน อยู่ในแถบเดียวกับปุ่มมุมมอง แต่ไม่ใช่ปุ่มสลับมุมมอง */
+    .view-sel { flex: 0 0 auto; max-width: 200px; border: none; border-radius: 11px; cursor: pointer;
+                padding: 9px 11px; background: rgba(255,255,255,0.16); color: #fff;
+                font-family: 'Prompt'; font-size: 12.5px; font-weight: 500;
+                appearance: none; -webkit-appearance: none;
+                background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+                background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+    .view-sel:hover { background-color: rgba(255,255,255,0.3); }
+    .view-sel.armed { background-color: #FFD600; color: #4a3b00; font-weight: 600;
+                      background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a3b00' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); }
+    .view-sel option { color: #222; background: #fff; }
+    .view-sel[hidden] { display: none; }
     .swal2-container { z-index: 5000 !important; }
 
     /* ===== มุมมองรายการ ===== */
@@ -246,10 +258,9 @@
       <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9.5" x2="21" y2="9.5"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="10" y1="4" x2="10" y2="20"/></svg>
       ตาราง
     </button>
-    <button class="view-btn act" id="btnAll" onclick="toggleAllDocs(this)" hidden>
-      <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      ทุกงาน
-    </button>
+    <select class="view-sel" id="ownerSel" onchange="onOwnerChange(this.value)" title="เลือกดูเอกสารของใคร" hidden>
+      <option value="__me__">เอกสารของฉัน</option>
+    </select>
     <button class="view-btn act" onclick="exportDocs()">
       <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       รายงาน
@@ -353,8 +364,7 @@
           ME_DEPT = data.sysDept || '';
           IS_DEV = !!data.isDev;
           // ปุ่มโหมดรวมโผล่เฉพาะผู้ดูแล สิทธิ์จริงเช็คที่เซิร์ฟเวอร์อีกชั้น
-          const bAll = document.getElementById('btnAll');
-          if(bAll) bAll.hidden = !IS_DEV;
+          if(IS_DEV) loadAllDocs();      // เตรียมรายชื่อไว้เงียบ ๆ dropdown จะโผล่เมื่อพร้อม
           if(data.sysName) document.getElementById('systemName').innerText = "ชื่อในระบบ: " + data.sysName;
           if(data.sysDept) document.getElementById('systemDept').innerText = "แผนก: " + data.sysDept;
           
@@ -534,69 +544,60 @@
 
     // ===== โหมดผู้ดูแล: ดูเอกสารของทุกคน =====
     // สิทธิ์ตรวจที่เซิร์ฟเวอร์ ปุ่มนี้แค่ขอข้อมูล ถ้าไม่มีสิทธิ์จะถูกปฏิเสธกลับมา
-    function toggleAllDocs(btn){
-      if(ALL_DOCS.length) { pickOwner(btn); return; }       // ดึงมาแล้ว เปิดตัวเลือกคนได้เลย
-      Swal.fire({ title:'กำลังดึงเอกสารทั้งระบบ…', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+    /**
+     * โหลดเอกสารทุกคนมาเก็บไว้เงียบ ๆ หลังหน้าแรกพร้อม แล้วเติมรายชื่อลง dropdown
+     * ดึงครั้งเดียว สลับคนทีหลังไม่ต้องรอ
+     */
+    function loadAllDocs(){
       fetch(GAS_API_URL + '?action=getAllDocs&userId=' + encodeURIComponent(LAST_UID) + '&t=' + Date.now())
         .then(r => r.json())
         .then(d => {
-          if(d.status !== 'success'){ Swal.fire('เปิดโหมดนี้ไม่ได้', d.message || 'ไม่มีสิทธิ์', 'warning'); return; }
+          if(d.status !== 'success') return;          // ไม่มีสิทธิ์ก็เงียบไป ไม่ต้องรบกวน
           ALL_DOCS = d.docs || [];
-          pickOwner(btn);
+          fillOwnerSelect();
         })
-        .catch(()=> Swal.fire('ดึงข้อมูลไม่สำเร็จ','ลองใหม่อีกครั้ง','error'));
+        .catch(function () {});
     }
 
-    /** เลือกว่าจะดูเอกสารของใคร — รายชื่อสร้างจากข้อมูลจริงพร้อมจำนวนเอกสาร */
-    function pickOwner(btn){
-      const count = {};
+    function fillOwnerSelect(){
+      const sel = document.getElementById('ownerSel');
+      if(!sel) return;
+
+      const count = {}, dept = {};
       ALL_DOCS.forEach(function (d) {
         const k = (d.ownerName || '').trim() || '(ไม่ระบุเจ้าของ)';
         count[k] = (count[k] || 0) + 1;
+        if(!dept[k]) dept[k] = (d.ownerDept || '').trim();
       });
       const names = Object.keys(count).sort(function (a, b) { return count[b] - count[a]; });
 
-      const opts = { '': 'ทุกคน (' + ALL_DOCS.length + ' ฉบับ)' };
+      let html = '<option value="__me__">เอกสารของฉัน (' + MY_DOCS.length + ')</option>'
+               + '<option value="">ทุกคน (' + ALL_DOCS.length + ')</option>';
       names.forEach(function (n) {
-        const dept = (ALL_DOCS.filter(function (d) { return (d.ownerName || '').trim() === n; })[0] || {}).ownerDept || '';
-        opts[n] = n + (dept ? (' · ' + dept) : '') + ' (' + count[n] + ')';
+        html += '<option value="' + docEsc(n) + '">' + docEsc(n)
+              + (dept[n] ? (' · ' + docEsc(dept[n])) : '') + ' (' + count[n] + ')</option>';
       });
-      opts['__me__'] = 'กลับไปดูของฉัน (' + MY_DOCS.length + ' ฉบับ)';
+      sel.innerHTML = html;
+      sel.value = ALL_MODE ? OWNER : '__me__';
+      sel.hidden = false;
+    }
 
-      Swal.fire({
-        title: 'ดูเอกสารของใคร',
-        input: 'select', inputOptions: opts, inputValue: OWNER,
-        showCancelButton: true, confirmButtonText: 'ตกลง', cancelButtonText: 'ยกเลิก',
-        confirmButtonColor: '#6200EA'
-      }).then(function (pick) {
-        if(!pick.isConfirmed) return;
-        const v = pick.value || '';
-
-        if(v === '__me__'){
-          ALL_MODE = false; OWNER = '';
-          btn.classList.remove('armed');
-          setAllBtnLabel(btn, 'ทุกงาน');
-          allDocs = MY_DOCS;
-          updateCounters(); filterData();
-          return;
-        }
-
+    /** เปลี่ยนคนที่ดูอยู่ แล้วให้ทั้งแดชบอร์ดเปลี่ยนตาม */
+    function onOwnerChange(v){
+      const sel = document.getElementById('ownerSel');
+      if(v === '__me__'){
+        ALL_MODE = false; OWNER = '';
+        allDocs = MY_DOCS;
+        sel.classList.remove('armed');
+      } else {
         ALL_MODE = true; OWNER = v;
-        btn.classList.add('armed');
         allDocs = v ? ALL_DOCS.filter(function (d) {
           return ((d.ownerName || '').trim() || '(ไม่ระบุเจ้าของ)') === v;
         }) : ALL_DOCS;
-        setAllBtnLabel(btn, v ? v.split(' ')[0] : 'ทุกงาน');
-        updateCounters(); filterData();
-      });
-    }
-
-    /** เปลี่ยนข้อความบนปุ่มโดยไม่แตะไอคอน */
-    function setAllBtnLabel(btn, text){
-      const icon = btn.querySelector('svg');
-      btn.innerHTML = '';
-      if(icon) btn.appendChild(icon);
-      btn.appendChild(document.createTextNode(' ' + text));
+        sel.classList.add('armed');
+      }
+      updateCounters();
+      filterData();
     }
 
     // ===== ออกรายงานเอกสาร =====
