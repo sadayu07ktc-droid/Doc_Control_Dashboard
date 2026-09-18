@@ -318,6 +318,8 @@
     let currentFilter = 'all';
     let ME_NAME = '', ME_DEPT = '', IS_DEV = false, ALL_MODE = false;
     let MY_DOCS = [];        // เอกสารของตัวเอง เก็บไว้สลับกลับ
+    let ALL_DOCS = [];       // เอกสารทุกคน ดึงครั้งเดียวแล้วเก็บไว้ ไม่ต้องยิงซ้ำตอนสลับคน
+    let OWNER = '';          // ชื่อคนที่เลือกดูอยู่ ('' = ทุกคน)
     let currentRowIdx = 0;
 
     window.onload = function() {
@@ -533,46 +535,109 @@
     // ===== โหมดผู้ดูแล: ดูเอกสารของทุกคน =====
     // สิทธิ์ตรวจที่เซิร์ฟเวอร์ ปุ่มนี้แค่ขอข้อมูล ถ้าไม่มีสิทธิ์จะถูกปฏิเสธกลับมา
     function toggleAllDocs(btn){
-      if(ALL_MODE){
-        ALL_MODE = false;
-        btn.classList.remove('armed');
-        allDocs = MY_DOCS;
-        updateCounters(); filterData();
-        return;
-      }
+      if(ALL_DOCS.length) { pickOwner(btn); return; }       // ดึงมาแล้ว เปิดตัวเลือกคนได้เลย
       Swal.fire({ title:'กำลังดึงเอกสารทั้งระบบ…', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
       fetch(GAS_API_URL + '?action=getAllDocs&userId=' + encodeURIComponent(LAST_UID) + '&t=' + Date.now())
         .then(r => r.json())
         .then(d => {
           if(d.status !== 'success'){ Swal.fire('เปิดโหมดนี้ไม่ได้', d.message || 'ไม่มีสิทธิ์', 'warning'); return; }
-          ALL_MODE = true;
-          btn.classList.add('armed');
-          allDocs = d.docs || [];
-          updateCounters(); filterData();
-          Swal.fire({ title:'โหมดดูทุกงาน', html: d.total + ' เอกสาร จาก ' + d.owners + ' คน',
-                      icon:'success', confirmButtonColor:'#6200EA' });
+          ALL_DOCS = d.docs || [];
+          pickOwner(btn);
         })
         .catch(()=> Swal.fire('ดึงข้อมูลไม่สำเร็จ','ลองใหม่อีกครั้ง','error'));
     }
 
+    /** เลือกว่าจะดูเอกสารของใคร — รายชื่อสร้างจากข้อมูลจริงพร้อมจำนวนเอกสาร */
+    function pickOwner(btn){
+      const count = {};
+      ALL_DOCS.forEach(function (d) {
+        const k = (d.ownerName || '').trim() || '(ไม่ระบุเจ้าของ)';
+        count[k] = (count[k] || 0) + 1;
+      });
+      const names = Object.keys(count).sort(function (a, b) { return count[b] - count[a]; });
+
+      const opts = { '': 'ทุกคน (' + ALL_DOCS.length + ' ฉบับ)' };
+      names.forEach(function (n) {
+        const dept = (ALL_DOCS.filter(function (d) { return (d.ownerName || '').trim() === n; })[0] || {}).ownerDept || '';
+        opts[n] = n + (dept ? (' · ' + dept) : '') + ' (' + count[n] + ')';
+      });
+      opts['__me__'] = 'กลับไปดูของฉัน (' + MY_DOCS.length + ' ฉบับ)';
+
+      Swal.fire({
+        title: 'ดูเอกสารของใคร',
+        input: 'select', inputOptions: opts, inputValue: OWNER,
+        showCancelButton: true, confirmButtonText: 'ตกลง', cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#6200EA'
+      }).then(function (pick) {
+        if(!pick.isConfirmed) return;
+        const v = pick.value || '';
+
+        if(v === '__me__'){
+          ALL_MODE = false; OWNER = '';
+          btn.classList.remove('armed');
+          setAllBtnLabel(btn, 'ทุกงาน');
+          allDocs = MY_DOCS;
+          updateCounters(); filterData();
+          return;
+        }
+
+        ALL_MODE = true; OWNER = v;
+        btn.classList.add('armed');
+        allDocs = v ? ALL_DOCS.filter(function (d) {
+          return ((d.ownerName || '').trim() || '(ไม่ระบุเจ้าของ)') === v;
+        }) : ALL_DOCS;
+        setAllBtnLabel(btn, v ? v.split(' ')[0] : 'ทุกงาน');
+        updateCounters(); filterData();
+      });
+    }
+
+    /** เปลี่ยนข้อความบนปุ่มโดยไม่แตะไอคอน */
+    function setAllBtnLabel(btn, text){
+      const icon = btn.querySelector('svg');
+      btn.innerHTML = '';
+      if(icon) btn.appendChild(icon);
+      btn.appendChild(document.createTextNode(' ' + text));
+    }
+
     // ===== ออกรายงานเอกสาร =====
     // ใช้ชุดที่กรองอยู่บนหน้าจอ จะได้ตรงกับที่ผู้ใช้เห็น ไม่ใช่ทั้งหมดเสมอ
+    // สีในรายงานให้ตรงกับที่เห็นบนหน้าจอ แดง = ต้องรีบ · ส้ม = ใกล้ถึงคิว · เขียว = ปิดงานแล้ว
+    const C_RED = '#C62828', C_ORANGE = '#E65100', C_GREEN = '#1B7F3B';
+    function toneDays(d){
+      if (d.daysLeft === '' || d.daysLeft === null) return '';
+      if (d.daysLeft < 0) return C_RED;
+      if (d.daysLeft <= 30) return C_ORANGE;
+      return '';
+    }
+    function toneStatus(d){
+      if (d.status === 'หมดอายุแล้ว') return C_RED;
+      if (d.status === 'ใกล้หมดอายุ') return C_ORANGE;
+      return '';
+    }
+    function toneProcess(d){
+      if (d.process === 'ดำเนินการแล้ว' || d.process === 'เสร็จสิ้น') return C_GREEN;
+      if (isPendingDoc(d)) return C_ORANGE;
+      return '';
+    }
+
     const DOC_COLS = [
       ['ลำดับ',        (d,i) => i + 1, 'num'],
       ['ชื่อเอกสาร',   d => d.docName || '-'],
       ['หน่วยงาน',     d => d.agency || '-'],
       ['วันเริ่ม',     d => d.startDate || '-', 'nw'],
-      ['วันหมดอายุ',   d => d.endDate || '-', 'nw'],
-      ['เหลือ (วัน)',  d => (d.daysLeft === '' ? '-' : Math.floor(d.daysLeft)), 'money'],
-      ['สถานะ',        d => d.status || '-', 'nw'],
-      ['ขั้นตอน',      d => d.process || '-', 'nw']
+      ['วันหมดอายุ',   d => d.endDate || '-', 'nw', toneStatus],
+      ['เหลือ (วัน)',  d => (d.daysLeft === '' ? '-' : Math.floor(d.daysLeft)), 'money', toneDays],
+      ['สถานะ',        d => d.status || '-', 'nw', toneStatus],
+      ['ขั้นตอน',      d => d.process || '-', 'nw', toneProcess]
     ];
     const DOC_COLS_ALL = [['เจ้าของ', d => d.ownerName || '-', 'nw'],
                           ['แผนก',   d => d.ownerDept || '-', 'nw']];
 
     function docCols(){
       // โหมดรวมต้องบอกด้วยว่าเอกสารเป็นของใคร ไม่งั้นอ่านแล้วไม่รู้เรื่อง
-      return ALL_MODE ? DOC_COLS.slice(0,1).concat(DOC_COLS_ALL, DOC_COLS.slice(1)) : DOC_COLS;
+      if(!ALL_MODE) return DOC_COLS;
+      if(OWNER) return DOC_COLS;        // ดูคนเดียว ชื่ออยู่บนหัวรายงานแล้ว ไม่ต้องซ้ำทุกแถว
+      return DOC_COLS.slice(0,1).concat(DOC_COLS_ALL, DOC_COLS.slice(1));
     }
 
     function docRows(){
@@ -592,12 +657,12 @@
     function docEsc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
     function docTitle(){
-      const scope = ALL_MODE ? 'ทุกคนในระบบ' : (ME_NAME || 'ของฉัน');
+      const scope = !ALL_MODE ? (ME_NAME || 'ของฉัน') : (OWNER || 'ทุกคนในระบบ');
       const filt = currentFilter === 'all' ? '' : (' · ' + currentFilter);
       return 'รายงานเอกสาร · ' + scope + filt;
     }
     function docFile(ext){
-      return ('รายงานเอกสาร_' + (ALL_MODE ? 'ทุกคน' : (ME_NAME || 'ของฉัน'))
+      return ('รายงานเอกสาร_' + (!ALL_MODE ? (ME_NAME || 'ของฉัน') : (OWNER || 'ทุกคน'))
               + '_' + new Date().toISOString().slice(0,10)).replace(/\s/g,'') + '.' + ext;
     }
 
@@ -621,6 +686,7 @@
       + 'th{ background:#6200EA; color:#fff; font-weight:500; padding:6px 4px; text-align:left; }'
       + 'td{ padding:5px 4px; border-bottom:1px solid #EFEAF8; font-weight:300; color:#222; }'
       + 'tbody tr:nth-child(even) td{ background:#FBFAFE; }'
+      + 'tbody tr.gone td{ background:#FFF4F4; }'
       + '.num{ width:30px; text-align:center; } .money{ text-align:right; white-space:nowrap; }'
       + '.nw{ white-space:nowrap; }'
       + '.ft{ margin-top:auto; padding-top:26px; display:flex; justify-content:space-between;'
@@ -632,9 +698,14 @@
       const today = new Date().toLocaleDateString('th-TH', { day:'numeric', month:'long', year:'numeric' });
       const done = rows.filter(d => d.process === 'ดำเนินการแล้ว').length;
       const todo = rows.filter(isPendingDoc).length;
+      const expired = rows.filter(d => d.status === 'หมดอายุแล้ว').length;
       const th = cols.map(c => '<th>' + c[0] + '</th>').join('');
-      const tb = rows.map((d, i) => '<tr>'
-        + cols.map(c => '<td class="' + (c[2] || '') + '">' + docEsc(c[1](d, i)) + '</td>').join('')
+      const tb = rows.map((d, i) => '<tr' + (d.status === 'หมดอายุแล้ว' ? ' class="gone"' : '') + '>'
+        + cols.map(function (c) {
+            const col = c[3] ? c[3](d) : '';
+            const st = col ? (' style="color:' + col + ';font-weight:500"') : '';
+            return '<td class="' + (c[2] || '') + '"' + st + '>' + docEsc(c[1](d, i)) + '</td>';
+          }).join('')
         + '</tr>').join('');
       return '<div class="page">'
         + '<div class="hd"><div><div class="t">' + docEsc(docTitle()) + '</div>'
@@ -642,8 +713,9 @@
         +   '<div class="co">SUKSOMBOON GROUP' + (ALL_MODE ? '' : ('<br>' + docEsc(ME_DEPT))) + '</div></div>'
         + '<div class="sm">'
         +   '<div><b>' + rows.length + '</b><span>ทั้งหมด</span></div>'
-        +   '<div><b>' + todo + '</b><span>รอดำเนินการ</span></div>'
-        +   '<div><b>' + done + '</b><span>ดำเนินการแล้ว</span></div>'
+        +   '<div><b style="color:' + C_RED + '">' + expired + '</b><span>หมดอายุแล้ว</span></div>'
+        +   '<div><b style="color:' + C_ORANGE + '">' + todo + '</b><span>รอดำเนินการ</span></div>'
+        +   '<div><b style="color:' + C_GREEN + '">' + done + '</b><span>ดำเนินการแล้ว</span></div>'
         + '</div>'
         + '<table><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table>'
         + '<div class="ft"><div>ผู้จัดทำ ..................................................</div>'
@@ -678,7 +750,11 @@
     function docExcel(rows){
       const cols = docCols();
       const head = cols.map(c => '<th>' + c[0] + '</th>').join('');
-      const body = rows.map((d, i) => '<tr>' + cols.map(c => '<td>' + docEsc(c[1](d, i)) + '</td>').join('') + '</tr>').join('');
+      const body = rows.map((d, i) => '<tr>' + cols.map(function (c) {
+          const col = c[3] ? c[3](d) : '';
+          const st = col ? (' style="color:' + col + ';font-weight:bold"') : '';
+          return '<td' + st + '>' + docEsc(c[1](d, i)) + '</td>';
+        }).join('') + '</tr>').join('');
       const html = '<meta charset="utf-8"><h3>' + docEsc(docTitle()) + '</h3>'
                  + '<table border="1"><tr>' + head + '</tr>' + body + '</table>';
       const blob = new Blob(['\ufeff' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
