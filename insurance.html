@@ -777,12 +777,13 @@
   // หน้านี้เอามาขึ้นให้ดูครั้งเดียวต่อรอบ (จำด้วย localStorage ว่ารอบไหนกดรับทราบไปแล้ว)
   var SWEEP = null;
   const SW_SEEN = 'insSweepSeen';
+  // d = ป้ายสำหรับรอบทดสอบ ที่ยังไม่ได้ลงมือทำจริง จะได้ไม่อ่านแล้วเข้าใจผิดว่าทำไปแล้ว
   const SW_KIND = {
-    added:     { c:'#7C4DFF', t:'เพิ่มเข้าระบบ' },
-    renewed:   { c:'#00C853', t:'ต่ออายุแล้ว' },
-    attached:  { c:'#2979FF', t:'แนบไฟล์แล้ว' },
-    duplicate: { c:'#FFA000', t:'ไฟล์ซ้ำ' },
-    review:    { c:'#E53935', t:'ต้องตรวจสอบ' }
+    added:     { c:'#7C4DFF', t:'เพิ่มเข้าระบบ', d:'จะเพิ่มเข้าระบบ' },
+    renewed:   { c:'#00C853', t:'ต่ออายุแล้ว',   d:'จะต่ออายุ' },
+    attached:  { c:'#2979FF', t:'แนบไฟล์แล้ว',   d:'จะแนบไฟล์' },
+    duplicate: { c:'#FFA000', t:'ไฟล์ซ้ำ',       d:'ไฟล์ซ้ำ' },
+    review:    { c:'#E53935', t:'ต้องตรวจสอบ',   d:'ต้องตรวจสอบ' }
   };
 
   function maybeShowSweep(){
@@ -803,8 +804,8 @@
       + ' · ไฟล์ทั้งหมด ' + s.files + ' ไฟล์'
       + (s.dry ? '<br><b style="color:#E65100">รอบทดสอบ ไม่ได้แนบไฟล์หรือแก้ข้อมูลจริง</b>' : '');
     const nums = [
-      ['เข้าระบบ', (s.added||0) + (s.renewed||0) + (s.attached||0), 'var(--primary)'],
-      ['ต่ออายุ',  s.renewed||0,  '#00A040'],
+      [s.dry ? 'จะเข้าระบบ' : 'เข้าระบบ', (s.added||0) + (s.renewed||0) + (s.attached||0), 'var(--primary)'],
+      [s.dry ? 'จะต่ออายุ'  : 'ต่ออายุ',  s.renewed||0,  '#00A040'],
       ['ไฟล์ซ้ำ',  s.duplicate||0, s.duplicate ? '#FFA000' : '#C7C7C7'],
       ['ต้องตรวจ', s.review||0,   s.review ? '#E53935' : '#C7C7C7']
     ];
@@ -812,15 +813,18 @@
       '<div><b style="color:' + n[2] + '">' + n[1] + '</b><small>' + n[0] + '</small></div>').join('');
 
     // เรียงให้เรื่องที่ต้องลงมือทำขึ้นก่อน
+    // ห้ามใช้ order[kind] || 9 เพราะ review มีลำดับ 0 ซึ่งเป็นค่าเท็จ จะกลายเป็น 9 แล้วตกไปอยู่ล่างสุด
     const order = { review:0, duplicate:1, added:2, renewed:3, attached:4 };
-    const items = (s.items || []).slice().sort((a,b)=>(order[a.kind]||9)-(order[b.kind]||9));
+    const rank = k => (order[k] === undefined ? 9 : order[k]);
+    const items = (s.items || []).slice().sort((a,b)=>rank(a.kind)-rank(b.kind));
     document.getElementById('swList').innerHTML = items.length
       ? items.map(it => {
-          const k = SW_KIND[it.kind] || { c:'#999', t:it.kind };
+          const k = SW_KIND[it.kind] || { c:'#999', t:it.kind, d:it.kind };
+          const label = s.dry ? (k.d || k.t) : k.t;
           return '<div class="sw-it"><span class="d" style="background:' + k.c + '"></span>'
             + '<div class="t"><b>' + esc(it.plate || '(ไม่ทราบทะเบียน)') + '</b>'
             + '<small>' + esc(it.text) + '</small></div>'
-            + '<small style="font-size:10.5px;color:' + k.c + ';font-weight:500;flex:none">' + k.t + '</small></div>';
+            + '<small style="font-size:10.5px;color:' + k.c + ';font-weight:500;flex:none">' + label + '</small></div>';
         }).join('')
       : '<div style="padding:18px;text-align:center;color:#999;font-size:12.5px;font-weight:300">รอบนี้ไม่มีรายการเปลี่ยนแปลง</div>';
 
