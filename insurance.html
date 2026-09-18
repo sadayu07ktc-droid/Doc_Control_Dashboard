@@ -1423,7 +1423,8 @@
               + ICO.clip + ' ดูไฟล์กรมธรรม์</a>'
             : '<button class="b-file" onclick="pickFile(\'' + esc(p.id) + '\',\'' + esc(p.plate) + '\')">'
               + ICO.up + ' แนบไฟล์</button>')
-        // ใบเสร็จค่าเบี้ย (ไฟล์ -tax) เก็บแยกจากตัวกรมธรรม์ โชว์เมื่อมีเท่านั้น
+        // ใบเสร็จค่าเบี้ย (ไฟล์ -tax) ตกลงกันว่าไม่เก็บเข้าระบบ
+        // ปุ่มยังเหลือไว้เผื่อแถวเก่าที่เคยแนบไว้ ปกติจะไม่มีอะไรโชว์
         + (p.receipt_url
             ? '<a class="b-view" href="' + esc(p.receipt_url) + '" target="_blank" rel="noopener">'
               + ICO.receipt + ' ใบเสร็จค่าเบี้ย</a>'
