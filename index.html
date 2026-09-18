@@ -1182,8 +1182,9 @@ function sendToGAS(process, issue, expiry, alertDays, alertToggle, b64, fName, f
     method: 'POST',
     headers: { "Content-Type": "text/plain" },
     body: JSON.stringify({ 
-      action: 'updateDocument', 
-      rowIdx: currentRowIdx, 
+      action: 'updateDocument',
+      rowIdx: currentRowIdx,
+      userId: globalUserId,        // เซิร์ฟเวอร์ต้องรู้ว่าใครสั่งแก้ ไว้เช็คสิทธิ์
       newProcess: process, 
       newIssueDate: issue, 
       newExpiryDate: expiry,
