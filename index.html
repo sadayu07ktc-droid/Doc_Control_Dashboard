@@ -123,6 +123,13 @@
     .view-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 6px; border: none; border-radius: 11px; background: transparent; color: rgba(255,255,255,0.85); font-family: 'Prompt'; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: 0.25s; }
     .view-btn:hover { background: rgba(255,255,255,0.16); }
     .view-btn.on { background: white; color: var(--primary); box-shadow: 0 3px 8px rgba(0,0,0,0.12); }
+    /* ปุ่มลงมือทำ ไม่ใช่ปุ่มสลับมุมมอง จึงไม่กินพื้นที่เท่ากันและไม่มีสถานะ on */
+    .view-btn.act { flex: 0 0 auto; padding-left: 13px; padding-right: 13px;
+                    background: rgba(255,255,255,0.16); }
+    .view-btn.act:hover { background: rgba(255,255,255,0.3); }
+    .view-btn.act.armed { background: #FFD600; color: #4a3b00; font-weight: 600; }
+    .view-btn[hidden] { display: none; }
+    .swal2-container { z-index: 5000 !important; }
 
     /* ===== มุมมองรายการ ===== */
     .doc-list.view-list { gap: 8px; }
@@ -239,6 +246,14 @@
       <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9.5" x2="21" y2="9.5"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="10" y1="4" x2="10" y2="20"/></svg>
       ตาราง
     </button>
+    <button class="view-btn act" id="btnAll" onclick="toggleAllDocs(this)" hidden>
+      <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      ทุกงาน
+    </button>
+    <button class="view-btn act" onclick="exportDocs()">
+      <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      รายงาน
+    </button>
   </div>
 
   <div class="doc-list" id="docContainer"></div>
@@ -301,6 +316,8 @@
     let allDocs = [];
     let globalUserId = '';
     let currentFilter = 'all';
+    let ME_NAME = '', ME_DEPT = '', IS_DEV = false, ALL_MODE = false;
+    let MY_DOCS = [];        // เอกสารของตัวเอง เก็บไว้สลับกลับ
     let currentRowIdx = 0;
 
     window.onload = function() {
@@ -328,7 +345,14 @@
         .then(res => res.json())
         .then(data => {
           clearTimeout(SLOW_T); clearTimeout(GIVEUP_T);
-          allDocs = data.docs || data; 
+          allDocs = data.docs || data;
+          MY_DOCS = allDocs;
+          ME_NAME = data.sysName || '';
+          ME_DEPT = data.sysDept || '';
+          IS_DEV = !!data.isDev;
+          // ปุ่มโหมดรวมโผล่เฉพาะผู้ดูแล สิทธิ์จริงเช็คที่เซิร์ฟเวอร์อีกชั้น
+          const bAll = document.getElementById('btnAll');
+          if(bAll) bAll.hidden = !IS_DEV;
           if(data.sysName) document.getElementById('systemName').innerText = "ชื่อในระบบ: " + data.sysName;
           if(data.sysDept) document.getElementById('systemDept').innerText = "แผนก: " + data.sysDept;
           
@@ -504,6 +528,208 @@
       if (!v) { box.classList.remove('show'); box.innerHTML = ''; return; }
       box.innerHTML = '<em>ตรงกับ</em> ' + toBE(v) + ' <em>(พ.ศ.)</em>';
       box.classList.add('show');
+    }
+
+    // ===== โหมดผู้ดูแล: ดูเอกสารของทุกคน =====
+    // สิทธิ์ตรวจที่เซิร์ฟเวอร์ ปุ่มนี้แค่ขอข้อมูล ถ้าไม่มีสิทธิ์จะถูกปฏิเสธกลับมา
+    function toggleAllDocs(btn){
+      if(ALL_MODE){
+        ALL_MODE = false;
+        btn.classList.remove('armed');
+        allDocs = MY_DOCS;
+        updateCounters(); filterData();
+        return;
+      }
+      Swal.fire({ title:'กำลังดึงเอกสารทั้งระบบ…', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+      fetch(GAS_API_URL + '?action=getAllDocs&userId=' + encodeURIComponent(LAST_UID) + '&t=' + Date.now())
+        .then(r => r.json())
+        .then(d => {
+          if(d.status !== 'success'){ Swal.fire('เปิดโหมดนี้ไม่ได้', d.message || 'ไม่มีสิทธิ์', 'warning'); return; }
+          ALL_MODE = true;
+          btn.classList.add('armed');
+          allDocs = d.docs || [];
+          updateCounters(); filterData();
+          Swal.fire({ title:'โหมดดูทุกงาน', html: d.total + ' เอกสาร จาก ' + d.owners + ' คน',
+                      icon:'success', confirmButtonColor:'#6200EA' });
+        })
+        .catch(()=> Swal.fire('ดึงข้อมูลไม่สำเร็จ','ลองใหม่อีกครั้ง','error'));
+    }
+
+    // ===== ออกรายงานเอกสาร =====
+    // ใช้ชุดที่กรองอยู่บนหน้าจอ จะได้ตรงกับที่ผู้ใช้เห็น ไม่ใช่ทั้งหมดเสมอ
+    const DOC_COLS = [
+      ['ลำดับ',        (d,i) => i + 1, 'num'],
+      ['ชื่อเอกสาร',   d => d.docName || '-'],
+      ['หน่วยงาน',     d => d.agency || '-'],
+      ['วันเริ่ม',     d => d.startDate || '-', 'nw'],
+      ['วันหมดอายุ',   d => d.endDate || '-', 'nw'],
+      ['เหลือ (วัน)',  d => (d.daysLeft === '' ? '-' : Math.floor(d.daysLeft)), 'money'],
+      ['สถานะ',        d => d.status || '-', 'nw'],
+      ['ขั้นตอน',      d => d.process || '-', 'nw']
+    ];
+    const DOC_COLS_ALL = [['เจ้าของ', d => d.ownerName || '-', 'nw'],
+                          ['แผนก',   d => d.ownerDept || '-', 'nw']];
+
+    function docCols(){
+      // โหมดรวมต้องบอกด้วยว่าเอกสารเป็นของใคร ไม่งั้นอ่านแล้วไม่รู้เรื่อง
+      return ALL_MODE ? DOC_COLS.slice(0,1).concat(DOC_COLS_ALL, DOC_COLS.slice(1)) : DOC_COLS;
+    }
+
+    function docRows(){
+      const q = (document.getElementById('searchInput').value || '').toLowerCase();
+      return allDocs.filter(doc => {
+        const matchText = !q || (doc.docName || '').toLowerCase().includes(q)
+                             || (doc.agency || '').toLowerCase().includes(q);
+        let ok = true;
+        if (currentFilter === 'ใกล้หมดอายุ') ok = (doc.status === 'ใกล้หมดอายุ');
+        else if (currentFilter === 'หมดอายุแล้ว') ok = (doc.status === 'หมดอายุแล้ว');
+        else if (currentFilter === 'รอดำเนินการ') ok = isPendingDoc(doc);
+        else if (currentFilter === 'ดำเนินการแล้ว') ok = (doc.process === 'ดำเนินการแล้ว');
+        return matchText && ok;
+      });
+    }
+
+    function docEsc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function docTitle(){
+      const scope = ALL_MODE ? 'ทุกคนในระบบ' : (ME_NAME || 'ของฉัน');
+      const filt = currentFilter === 'all' ? '' : (' · ' + currentFilter);
+      return 'รายงานเอกสาร · ' + scope + filt;
+    }
+    function docFile(ext){
+      return ('รายงานเอกสาร_' + (ALL_MODE ? 'ทุกคน' : (ME_NAME || 'ของฉัน'))
+              + '_' + new Date().toISOString().slice(0,10)).replace(/\s/g,'') + '.' + ext;
+    }
+
+    const DOC_CSS = ''
+      + '@page{ size:A4 landscape; margin:0; }'
+      + '*{ box-sizing:border-box; }'
+      + 'body{ margin:0; background:#eee; font-family:"Prompt",sans-serif; }'
+      + '.page{ width:1123px; min-height:794px; background:#fff; padding:34px 32px 28px; margin:0 auto;'
+      +   ' display:flex; flex-direction:column; }'
+      + '.hd{ display:flex; align-items:flex-start; justify-content:space-between;'
+      +   ' border-bottom:3px solid #6200EA; padding-bottom:11px; }'
+      + '.hd .t{ font-size:20px; font-weight:600; color:#3d0099; }'
+      + '.hd .s{ font-size:12px; color:#666; font-weight:300; margin-top:3px; }'
+      + '.hd .co{ font-size:12px; font-weight:600; color:#6200EA; text-align:right; }'
+      + '.sm{ display:flex; gap:10px; margin:13px 0 11px; }'
+      + '.sm div{ flex:1; background:#F7F4FD; border-radius:9px; padding:8px; text-align:center; }'
+      + '.sm b{ display:block; font-size:16px; font-weight:600; color:#6200EA; }'
+      + '.sm span{ display:block; font-size:9.5px; color:#888; font-weight:300; margin-top:1px; }'
+      + 'table{ width:100%; border-collapse:collapse; font-size:9.5px; }'
+      + 'thead{ display:table-header-group; } tbody tr{ page-break-inside:avoid; }'
+      + 'th{ background:#6200EA; color:#fff; font-weight:500; padding:6px 4px; text-align:left; }'
+      + 'td{ padding:5px 4px; border-bottom:1px solid #EFEAF8; font-weight:300; color:#222; }'
+      + 'tbody tr:nth-child(even) td{ background:#FBFAFE; }'
+      + '.num{ width:30px; text-align:center; } .money{ text-align:right; white-space:nowrap; }'
+      + '.nw{ white-space:nowrap; }'
+      + '.ft{ margin-top:auto; padding-top:26px; display:flex; justify-content:space-between;'
+      +   ' font-size:10.5px; color:#555; font-weight:300; }'
+      + '@media print{ body{ background:#fff; } .page{ margin:0; } }';
+
+    function docA4(rows){
+      const cols = docCols();
+      const today = new Date().toLocaleDateString('th-TH', { day:'numeric', month:'long', year:'numeric' });
+      const done = rows.filter(d => d.process === 'ดำเนินการแล้ว').length;
+      const todo = rows.filter(isPendingDoc).length;
+      const th = cols.map(c => '<th>' + c[0] + '</th>').join('');
+      const tb = rows.map((d, i) => '<tr>'
+        + cols.map(c => '<td class="' + (c[2] || '') + '">' + docEsc(c[1](d, i)) + '</td>').join('')
+        + '</tr>').join('');
+      return '<div class="page">'
+        + '<div class="hd"><div><div class="t">' + docEsc(docTitle()) + '</div>'
+        +   '<div class="s">ข้อมูล ณ ' + docEsc(today) + ' · ทั้งหมด ' + rows.length + ' รายการ</div></div>'
+        +   '<div class="co">SUKSOMBOON GROUP' + (ALL_MODE ? '' : ('<br>' + docEsc(ME_DEPT))) + '</div></div>'
+        + '<div class="sm">'
+        +   '<div><b>' + rows.length + '</b><span>ทั้งหมด</span></div>'
+        +   '<div><b>' + todo + '</b><span>รอดำเนินการ</span></div>'
+        +   '<div><b>' + done + '</b><span>ดำเนินการแล้ว</span></div>'
+        + '</div>'
+        + '<table><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table>'
+        + '<div class="ft"><div>ผู้จัดทำ ..................................................</div>'
+        + '<div>ผู้อนุมัติ ..................................................</div></div>'
+        + '</div>';
+    }
+
+    function docUnstick(){
+      if(document.querySelector('.swal2-container')) return;
+      ['swal2-shown','swal2-height-auto','swal2-no-backdrop'].forEach(function (c) {
+        document.body.classList.remove(c); document.documentElement.classList.remove(c);
+      });
+      document.body.style.overflow = ''; document.body.style.paddingRight = '';
+    }
+
+    function exportDocs(){
+      const rows = docRows();
+      if(!rows.length){ Swal.fire('ไม่มีข้อมูล','ยังไม่มีเอกสารให้ออกรายงาน','info'); return; }
+      Swal.fire({
+        title: 'ออกรายงาน ' + rows.length + ' รายการ',
+        html: '<div style="font-size:13px;color:#888;font-weight:300">' + docEsc(docTitle()) + '</div>',
+        showDenyButton: true, showCancelButton: true,
+        confirmButtonText: 'Excel', denyButtonText: 'PDF', cancelButtonText: 'JPEG',
+        confirmButtonColor: '#1D6F42', denyButtonColor: '#B3261E', cancelButtonColor: '#6200EA'
+      }).then(function (pick) {
+        if(pick.isConfirmed) return docExcel(rows);
+        if(pick.isDenied)    return docPdf(rows);
+        if(pick.dismiss === Swal.DismissReason.cancel) return docJpeg(rows);
+      });
+    }
+
+    function docExcel(rows){
+      const cols = docCols();
+      const head = cols.map(c => '<th>' + c[0] + '</th>').join('');
+      const body = rows.map((d, i) => '<tr>' + cols.map(c => '<td>' + docEsc(c[1](d, i)) + '</td>').join('') + '</tr>').join('');
+      const html = '<meta charset="utf-8"><h3>' + docEsc(docTitle()) + '</h3>'
+                 + '<table border="1"><tr>' + head + '</tr>' + body + '</table>';
+      const blob = new Blob(['\ufeff' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = docFile('xls');
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(a.href); docUnstick(); }, 800);
+      setTimeout(function(){ Swal.fire({ title:'ดาวน์โหลดแล้ว', html: rows.length + ' รายการ', icon:'success', confirmButtonColor:'#6200EA' }); }, 120);
+    }
+
+    function docPdf(rows){
+      const w = window.open('', '_blank');
+      if(!w){ Swal.fire('เปิดหน้าต่างไม่ได้','เบราว์เซอร์บล็อก popup อยู่ กรุณาอนุญาตแล้วลองใหม่','warning'); return; }
+      w.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8"><title>' + docEsc(docTitle()) + '</title>'
+        + '<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">'
+        + '<style>' + DOC_CSS + '</style></head><body>' + docA4(rows) + '</body></html>');
+      w.document.close();
+      const go = function(){ setTimeout(function(){ w.focus(); w.print(); }, 400); };
+      if(w.document.fonts && w.document.fonts.ready) w.document.fonts.ready.then(go); else w.onload = go;
+      Swal.close(); setTimeout(docUnstick, 120);
+    }
+
+    let DOC_H2C = null;
+    function docJpeg(rows){
+      Swal.fire({ title:'กำลังสร้างรูป…', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+      const load = DOC_H2C ? Promise.resolve(DOC_H2C) : new Promise(function (res, rej) {
+        const sc = document.createElement('script');
+        sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        sc.onload = function(){ DOC_H2C = window.html2canvas; res(DOC_H2C); };
+        sc.onerror = function(){ rej(new Error('โหลดตัวแปลงรูปไม่ได้')); };
+        document.head.appendChild(sc);
+      });
+      load.then(function (h2c) {
+        let stage = document.getElementById('docStage');
+        if(!stage){ stage = document.createElement('div'); stage.id = 'docStage';
+                    stage.style.cssText = 'position:fixed;left:-10000px;top:0'; document.body.appendChild(stage); }
+        stage.innerHTML = '<style>' + DOC_CSS + '</style>' + docA4(rows);
+        const page = stage.querySelector('.page');
+        const scale = rows.length > 120 ? 1 : 2;      // รายการเยอะ รูปจะสูงมาก ลดความละเอียดลง
+        return h2c(page, { scale: scale, backgroundColor:'#ffffff', useCORS:true }).then(function (canvas) {
+          const a = document.createElement('a');
+          a.href = canvas.toDataURL('image/jpeg', 0.92);
+          a.download = docFile('jpg');
+          a.click();
+          stage.innerHTML = '';
+          setTimeout(function(){ docUnstick();
+            Swal.fire({ title:'ดาวน์โหลดแล้ว', html: rows.length + ' รายการ', icon:'success', confirmButtonColor:'#6200EA' });
+          }, 120);
+        });
+      }).catch(function (e) { Swal.fire('สร้างรูปไม่สำเร็จ', e.message || 'ลองใหม่อีกครั้ง', 'error'); });
     }
 
     // ===== สลับมุมมอง: การ์ด / รายการ / ตาราง =====
