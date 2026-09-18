@@ -456,6 +456,10 @@
   function esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   const TYPE_LABEL = { 'สมัครใจ': 'ประกันภัย' };
   function typeLabel(t){ return TYPE_LABEL[t] || t; }
+  /** ชื่อบริษัทแบบสั้น — ตัด 'บริษัท' กับ 'จำกัด' ออก ไม่งั้นคอลัมน์กินที่เกินไป */
+  function coName(v){
+    return String(v || '').replace(/^บริษัท\s*/, '').replace(/\s*จำกัด\s*$/, '').trim() || '-';
+  }
   function baht(n){ return Number(n||0).toLocaleString('th-TH',{maximumFractionDigits:0}); }
   function api(action, params){
     const q = new URLSearchParams(Object.assign({action:action}, params||{})).toString();
@@ -1177,36 +1181,39 @@
 
   /** คอลัมน์ของใบรายงานแต่ละแบบ — ใช้ร่วมกันทั้ง Excel และ A4 จะได้ไม่หลุดกัน */
   const OUT_COLS = [
-    ['ลำดับ',       (p,i) => i + 1],
-    ['ทะเบียน',     p => p.plate || '-'],
+    ['ลำดับ',       (p,i) => i + 1, 'num'],
+    ['บริษัท',      p => coName(p.insured)],
+    ['ทะเบียน',     p => p.plate || '-', 'name'],
     ['จังหวัด',     p => p.province || '-'],
     ['ยี่ห้อ / รุ่น', p => [p.brand, p.model].filter(Boolean).join(' ') || '-'],
-    ['เลขตัวถัง',   p => p.chassis || '-'],
-    ['เลขกรมธรรม์', p => p.policy_no || '-'],
-    ['คุ้มครองถึง', p => p.end_label || p.end_date || '-'],
-    ['เบี้ย (บาท)', p => baht(p.premium_total)],
-    ['สถานะ',       p => p.status === 'renewed' ? 'ต่อแล้ว' : 'ยังไม่ต่อ']
+    ['เลขตัวถัง',   p => p.chassis || '-', 'nw'],
+    ['เลขกรมธรรม์', p => p.policy_no || '-', 'nw'],
+    ['คุ้มครองถึง', p => p.end_label || p.end_date || '-', 'nw'],
+    ['เบี้ย (บาท)', p => baht(p.premium_total), 'money'],
+    ['สถานะ',       p => p.status === 'renewed' ? 'ต่อแล้ว' : 'ยังไม่ต่อ', 'nw']
   ];
   const NOFILE_COLS = [
-    ['ลำดับ',       (p,i) => i + 1],
-    ['ประเภท',      p => typeLabel(p.type)],
-    ['ทะเบียน',     p => p.plate || '-'],
+    ['ลำดับ',       (p,i) => i + 1, 'num'],
+    ['ประเภท',      p => typeLabel(p.type), 'nw'],
+    ['บริษัท',      p => coName(p.insured)],
+    ['ทะเบียน',     p => p.plate || '-', 'name'],
     ['จังหวัด',     p => p.province || '-'],
     ['ยี่ห้อ / รุ่น', p => [p.brand, p.model].filter(Boolean).join(' ') || '-'],
-    ['เลขตัวถัง',   p => p.chassis || '-'],
-    ['เลขกรมธรรม์', p => p.policy_no || '-'],
-    ['คุ้มครองถึง', p => p.end_label || p.end_date || '-']
+    ['เลขตัวถัง',   p => p.chassis || '-', 'nw'],
+    ['เลขกรมธรรม์', p => p.policy_no || '-', 'nw'],
+    ['คุ้มครองถึง', p => p.end_label || p.end_date || '-', 'nw']
   ];
   const MISSING_COLS = [
-    ['ลำดับ',       (c,i) => i + 1],
-    ['ขาดอะไร',     c => typeLabel(c.missing)],
-    ['ทะเบียน',     c => c.plate || '-'],
+    ['ลำดับ',       (c,i) => i + 1, 'num'],
+    ['ขาดอะไร',     c => typeLabel(c.missing), 'nw'],
+    ['บริษัท',      c => coName(c.insured)],
+    ['ทะเบียน',     c => c.plate || '-', 'name'],
     ['จังหวัด',     c => c.province || '-'],
     ['ยี่ห้อ / รุ่น', c => [c.brand, c.model].filter(Boolean).join(' ') || '-'],
     ['เลขตัวถัง',   c => c.chassis || '-'],
     ['ที่มีอยู่',    c => (c.has || []).map(typeLabel).join(' + ') || '-'],
-    ['เล่มอ้างอิง',  c => c.ref_policy || '-'],
-    ['คุ้มครองถึง', c => c.ref_end_label || c.ref_end || '-']
+    ['เล่มอ้างอิง',  c => c.ref_policy || '-', 'nw'],
+    ['คุ้มครองถึง', c => c.ref_end_label || c.ref_end || '-', 'nw']
   ];
 
   /** ใบรายงานของหน้าต่างที่เปิดอยู่ตอนนี้ */
@@ -1247,7 +1254,7 @@
 
     const th = cols.map(c => '<th>' + c[0] + '</th>').join('');
     const tb = rows.map((p, i) => '<tr' + (p.status === 'renewed' ? ' class="ok"' : '') + '>'
-      + cols.map((c, ci) => '<td class="c' + ci + '">' + esc(c[1](p, i)) + '</td>').join('') + '</tr>').join('');
+      + cols.map(c => '<td class="' + (c[2] || '') + '">' + esc(c[1](p, i)) + '</td>').join('') + '</tr>').join('');
 
     // ใบที่ไม่เกี่ยวกับการต่ออายุ ไม่ต้องมีแถบสรุปเบี้ย/ต่อแล้ว เพราะไม่มีความหมาย
     const stats = sp.stats
@@ -1295,8 +1302,8 @@
     + 'td{ padding:7px 5px; border-bottom:1px solid #EFEAF8; font-weight:300; color:#222; }'
     + 'tbody tr:nth-child(even) td{ background:#FBFAFE; }'
     + 'tr.ok td{ color:#00893d; }'
-    + '.c0{ width:34px; text-align:center; } .c1{ font-weight:500; white-space:nowrap; }'
-    + '.c7{ text-align:right; white-space:nowrap; } .c6,.c8{ white-space:nowrap; }'
+    + '.num{ width:34px; text-align:center; } .name{ font-weight:500; white-space:nowrap; }'
+    + '.money{ text-align:right; white-space:nowrap; } .nw{ white-space:nowrap; }'
     + '.ft{ margin-top:auto; padding-top:34px; display:flex; justify-content:space-between;'
     +   ' font-size:11px; color:#555; font-weight:300; }'
     + '@media print{ body{ background:#fff; } .page{ margin:0; } }';
@@ -1696,6 +1703,7 @@
   // Excel เอาครบทุกคอลัมน์ไว้ใช้งานต่อ ส่วนใบพิมพ์ตัดเหลือเท่าที่อ่านบนกระดาษไหว
   const REP_COLS = [
     ['ประเภท',        p => typeLabel(p.type)],
+    ['บริษัท',        p => p.insured || ''],
     ['เลขกรมธรรม์',   p => p.policy_no],
     ['ทะเบียน',       p => p.plate],
     ['จังหวัด',       p => p.province],
@@ -1712,26 +1720,28 @@
     ['คุ้มครองใหม่ถึง', p => p.renewed_end_date]
   ];
   const REP_PRINT = [
-    ['ลำดับ',        (p, i) => i + 1],
-    ['ประเภท',       p => typeLabel(p.type)],
-    ['ทะเบียน',      p => p.plate || '-'],
+    ['ลำดับ',        (p, i) => i + 1, 'num'],
+    ['ประเภท',       p => typeLabel(p.type), 'nw'],
+    ['บริษัท',       p => coName(p.insured)],
+    ['ทะเบียน',      p => p.plate || '-', 'name'],
     ['ยี่ห้อ / รุ่น', p => [p.brand, p.model].filter(Boolean).join(' ') || '-'],
-    ['เลขกรมธรรม์',  p => p.policy_no || '-'],
-    ['คุ้มครองถึง',  p => beDate(p.end_date) || p.end_date || '-'],
-    ['เหลือ',        p => (p.days_left < 0 ? ('เลย ' + Math.abs(p.days_left)) : p.days_left) + ' วัน'],
-    ['เบี้ย (บาท)',  p => baht(p.premium_total)],
-    ['สถานะ',        p => p.status === 'renewed' ? 'ต่อแล้ว' : 'ยังไม่ต่อ']
+    ['เลขกรมธรรม์',  p => p.policy_no || '-', 'nw'],
+    ['คุ้มครองถึง',  p => beDate(p.end_date) || p.end_date || '-', 'nw'],
+    ['เหลือ',        p => (p.days_left < 0 ? ('เลย ' + Math.abs(p.days_left)) : p.days_left) + ' วัน', 'nw'],
+    ['เบี้ย (บาท)',  p => baht(p.premium_total), 'money'],
+    ['สถานะ',        p => p.status === 'renewed' ? 'ต่อแล้ว' : 'ยังไม่ต่อ', 'nw']
   ];
 
   /** ใบ A4 แนวนอน — คอลัมน์เยอะเกินกว่าจะใส่แนวตั้งแล้วยังอ่านรู้เรื่อง */
   function repA4Html(rows){
-    const label = TYPE ? typeLabel(TYPE) : 'ทุกประเภท';
+    const label = (TYPE ? typeLabel(TYPE) : 'ทุกประเภท')
+                + ' · ' + (REP_CO ? coName(REP_CO) : 'ทุกบริษัท');
     const today = new Date().toLocaleDateString('th-TH', { day:'numeric', month:'long', year:'numeric' });
     const left = rows.filter(p => p.status !== 'renewed').length;
     const total = rows.reduce((a, p) => a + (Number(p.premium_total) || 0), 0);
     const th = REP_PRINT.map(c => '<th>' + c[0] + '</th>').join('');
     const tb = rows.map((p, i) => '<tr' + (p.status === 'renewed' ? ' class="ok"' : '') + '>'
-      + REP_PRINT.map((c, ci) => '<td class="c' + ci + '">' + esc(c[1](p, i)) + '</td>').join('') + '</tr>').join('');
+      + REP_PRINT.map(c => '<td class="' + (c[2] || '') + '">' + esc(c[1](p, i)) + '</td>').join('') + '</tr>').join('');
     return '<div class="page">'
       + '<div class="hd">'
       +   '<div><div class="t">รายงานประกันภัยรถ · ' + esc(label) + '</div>'
@@ -1773,34 +1783,62 @@
     + 'td{ padding:5px 4px; border-bottom:1px solid #EFEAF8; font-weight:300; color:#222; }'
     + 'tbody tr:nth-child(even) td{ background:#FBFAFE; }'
     + 'tr.ok td{ color:#00893d; }'
-    + '.c0{ width:30px; text-align:center; } .c2{ font-weight:500; white-space:nowrap; }'
-    + '.c5,.c6,.c8{ white-space:nowrap; } .c7{ text-align:right; white-space:nowrap; }'
+    + '.num{ width:30px; text-align:center; } .name{ font-weight:500; white-space:nowrap; }'
+    + '.money{ text-align:right; white-space:nowrap; } .nw{ white-space:nowrap; }'
     + '.ft{ margin-top:auto; padding-top:26px; display:flex; justify-content:space-between;'
     +   ' font-size:10.5px; color:#555; font-weight:300; }'
     + '@media print{ body{ background:#fff; } .page{ margin:0; } }';
 
   function repFileName(ext){
-    return ('รายงานประกันภัยรถ_' + (TYPE ? typeLabel(TYPE) : 'ทั้งหมด') + '_'
-            + new Date().toISOString().slice(0, 10)).replace(/\s/g, '') + '.' + ext;
+    return ('รายงานประกันภัยรถ_' + (TYPE ? typeLabel(TYPE) : 'ทั้งหมด')
+            + '_' + (REP_CO ? coName(REP_CO) : 'ทุกบริษัท')
+            + '_' + new Date().toISOString().slice(0, 10)).replace(/\s/g, '') + '.' + ext;
   }
+
+  // บริษัทที่เลือกอยู่ตอนออกรายงาน ('' = ทุกบริษัท) ใช้ทั้งกรองแถว หัวรายงาน และชื่อไฟล์
+  var REP_CO = '';
 
   function exportReport(){
     Swal.fire({ title:'กำลังดึงข้อมูล…', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
-    api('ins_report', TYPE ? { type: TYPE } : {}).then(function (r) {
-      const rows = r.rows || [];
-      if(!rows.length){ Swal.fire('ไม่มีข้อมูล','ยังไม่มีกรมธรรม์ให้ออกรายงาน','info'); return; }
-      return Swal.fire({
+    api('ins_report', TYPE ? { type: TYPE } : {}).then(async function (r) {
+      const all = r.rows || [];
+      if(!all.length){ Swal.fire('ไม่มีข้อมูล','ยังไม่มีกรมธรรม์ให้ออกรายงาน','info'); return; }
+
+      // รายชื่อบริษัทสร้างจากข้อมูลจริง เรียงตามจำนวนฉบับมากไปน้อย
+      const count = {};
+      all.forEach(p => { const k = String(p.insured || '').trim(); count[k] = (count[k] || 0) + 1; });
+      const cos = Object.keys(count).filter(Boolean).sort((a, b) => count[b] - count[a]);
+      const opts = { '': 'ทุกบริษัท (' + all.length + ' ฉบับ)' };
+      cos.forEach(c => { opts[c] = coName(c) + ' (' + count[c] + ')'; });
+      const blank = all.length - cos.reduce((a, c) => a + count[c], 0);
+      if(blank) opts['(ว่าง)'] = 'ยังไม่ระบุบริษัท (' + blank + ')';
+
+      const who = await Swal.fire({
+        title: 'ออกรายงานของบริษัทไหน',
+        input: 'select', inputOptions: opts, inputValue: REP_CO,
+        showCancelButton: true, confirmButtonText: 'ถัดไป', cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#6200EA'
+      });
+      if(!who.isConfirmed) return;
+      REP_CO = who.value || '';
+
+      const rows = !REP_CO ? all
+        : REP_CO === '(ว่าง)' ? all.filter(p => !String(p.insured || '').trim())
+        : all.filter(p => String(p.insured || '').trim() === REP_CO);
+      if(!rows.length){ Swal.fire('ไม่มีข้อมูล','บริษัทนี้ยังไม่มีกรมธรรม์','info'); return; }
+
+      const pick = await Swal.fire({
         title: 'ออกรายงาน ' + rows.length + ' ฉบับ',
-        html: '<div style="font-size:13px;color:#888;font-weight:300">เลือกรูปแบบไฟล์</div>',
+        html: '<div style="font-size:13px;color:#888;font-weight:300">'
+              + esc(REP_CO ? coName(REP_CO) : 'ทุกบริษัท') + ' · เลือกรูปแบบไฟล์</div>',
         showDenyButton: true, showCancelButton: true,
         confirmButtonText: 'Excel', denyButtonText: 'PDF', cancelButtonText: 'JPEG',
         confirmButtonColor: '#1D6F42', denyButtonColor: '#B3261E', cancelButtonColor: '#6200EA'
-      }).then(function (pick) {
-        if(pick.isConfirmed) return repExcel(rows, r.summary);
-        if(pick.isDenied)    return repPdf(rows);
-        // กดปุ่ม JPEG เท่านั้น ถ้ากดปิดหน้าต่างหรือ Esc ให้เงียบไป
-        if(pick.dismiss === Swal.DismissReason.cancel) return repJpeg(rows);
       });
+      if(pick.isConfirmed) return repExcel(rows, r.summary);
+      if(pick.isDenied)    return repPdf(rows);
+      // กดปุ่ม JPEG เท่านั้น ถ้ากดปิดหน้าต่างหรือ Esc ให้เงียบไป
+      if(pick.dismiss === Swal.DismissReason.cancel) return repJpeg(rows);
     }).catch(function () { Swal.fire('ออกรายงานไม่สำเร็จ','ลองใหม่อีกครั้ง','error'); });
   }
 
@@ -1814,8 +1852,9 @@
     a.download = repFileName('xls');
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1500);
+    const sum = rows.reduce((a, p) => a + (Number(p.premium_total) || 0), 0);
     Swal.fire({ title:'ดาวน์โหลดแล้ว',
-                html: rows.length + ' รายการ · เบี้ยรวม ' + baht(summary && summary.premium_total) + ' บาท',
+                html: rows.length + ' รายการ · เบี้ยรวม ' + baht(sum) + ' บาท',
                 icon:'success', confirmButtonColor:'#6200EA' });
   }
 
