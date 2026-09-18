@@ -1646,26 +1646,166 @@
   }
 
   // ---------- ออกรายงาน Excel ----------
+  // ---------- รายงานรวมทั้งระบบ (Excel / PDF / JPEG) ----------
+  // Excel เอาครบทุกคอลัมน์ไว้ใช้งานต่อ ส่วนใบพิมพ์ตัดเหลือเท่าที่อ่านบนกระดาษไหว
+  const REP_COLS = [
+    ['ประเภท',        p => typeLabel(p.type)],
+    ['เลขกรมธรรม์',   p => p.policy_no],
+    ['ทะเบียน',       p => p.plate],
+    ['จังหวัด',       p => p.province],
+    ['ยี่ห้อ',        p => p.brand],
+    ['รุ่น',          p => p.model],
+    ['เลขตัวถัง',     p => p.chassis],
+    ['ปีรถ',          p => p.year],
+    ['วันเริ่มคุ้มครอง', p => p.start_date],
+    ['วันสิ้นสุด',    p => p.end_date],
+    ['เหลือ (วัน)',   p => p.days_left],
+    ['เบี้ยรวม',      p => p.premium_total],
+    ['สถานะ',         p => p.status === 'renewed' ? 'ต่อแล้ว' : 'ยังไม่ต่อ'],
+    ['เล่มใหม่',      p => p.renewed_policy_no],
+    ['คุ้มครองใหม่ถึง', p => p.renewed_end_date]
+  ];
+  const REP_PRINT = [
+    ['ลำดับ',        (p, i) => i + 1],
+    ['ประเภท',       p => typeLabel(p.type)],
+    ['ทะเบียน',      p => p.plate || '-'],
+    ['ยี่ห้อ / รุ่น', p => [p.brand, p.model].filter(Boolean).join(' ') || '-'],
+    ['เลขกรมธรรม์',  p => p.policy_no || '-'],
+    ['คุ้มครองถึง',  p => beDate(p.end_date) || p.end_date || '-'],
+    ['เหลือ',        p => (p.days_left < 0 ? ('เลย ' + Math.abs(p.days_left)) : p.days_left) + ' วัน'],
+    ['เบี้ย (บาท)',  p => baht(p.premium_total)],
+    ['สถานะ',        p => p.status === 'renewed' ? 'ต่อแล้ว' : 'ยังไม่ต่อ']
+  ];
+
+  /** ใบ A4 แนวนอน — คอลัมน์เยอะเกินกว่าจะใส่แนวตั้งแล้วยังอ่านรู้เรื่อง */
+  function repA4Html(rows){
+    const label = TYPE ? typeLabel(TYPE) : 'ทุกประเภท';
+    const today = new Date().toLocaleDateString('th-TH', { day:'numeric', month:'long', year:'numeric' });
+    const left = rows.filter(p => p.status !== 'renewed').length;
+    const total = rows.reduce((a, p) => a + (Number(p.premium_total) || 0), 0);
+    const th = REP_PRINT.map(c => '<th>' + c[0] + '</th>').join('');
+    const tb = rows.map((p, i) => '<tr' + (p.status === 'renewed' ? ' class="ok"' : '') + '>'
+      + REP_PRINT.map((c, ci) => '<td class="c' + ci + '">' + esc(c[1](p, i)) + '</td>').join('') + '</tr>').join('');
+    return '<div class="page">'
+      + '<div class="hd">'
+      +   '<div><div class="t">รายงานประกันภัยรถ · ' + esc(label) + '</div>'
+      +   '<div class="s">ข้อมูล ณ ' + esc(today) + ' · ทั้งหมด ' + rows.length + ' ฉบับ</div></div>'
+      +   '<div class="co">SUKSOMBOON GROUP</div>'
+      + '</div>'
+      + '<div class="sm">'
+      +   '<div><b>' + rows.length + '</b><span>ฉบับทั้งหมด</span></div>'
+      +   '<div><b>' + left + '</b><span>ยังไม่ต่อ</span></div>'
+      +   '<div><b>' + (rows.length - left) + '</b><span>ต่อแล้ว</span></div>'
+      +   '<div><b>' + baht(total) + '</b><span>เบี้ยรวม (บาท)</span></div>'
+      + '</div>'
+      + '<table><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table>'
+      + '<div class="ft"><div>ผู้จัดทำ ..................................................</div>'
+      + '<div>ผู้อนุมัติ ..................................................</div></div>'
+      + '</div>';
+  }
+
+  const REP_CSS = ''
+    + '@page{ size:A4 landscape; margin:0; }'
+    + '*{ box-sizing:border-box; }'
+    + 'body{ margin:0; background:#eee; font-family:"Prompt",sans-serif; }'
+    + '.page{ width:1123px; min-height:794px; background:#fff; padding:34px 32px 28px; margin:0 auto;'
+    +   ' display:flex; flex-direction:column; }'
+    + '.hd{ display:flex; align-items:flex-start; justify-content:space-between;'
+    +   ' border-bottom:3px solid #6200EA; padding-bottom:11px; }'
+    + '.hd .t{ font-size:20px; font-weight:600; color:#3d0099; }'
+    + '.hd .s{ font-size:12px; color:#666; font-weight:300; margin-top:3px; }'
+    + '.hd .co{ font-size:12px; font-weight:600; color:#6200EA; }'
+    + '.sm{ display:flex; gap:10px; margin:13px 0 11px; }'
+    + '.sm div{ flex:1; background:#F7F4FD; border-radius:9px; padding:8px; text-align:center; }'
+    + '.sm b{ display:block; font-size:16px; font-weight:600; color:#6200EA; }'
+    + '.sm span{ display:block; font-size:9.5px; color:#888; font-weight:300; margin-top:1px; }'
+    + 'table{ width:100%; border-collapse:collapse; font-size:9.5px; }'
+    /* หัวตารางซ้ำทุกหน้าเวลาพิมพ์ และไม่ให้แถวถูกผ่ากลางตอนขึ้นหน้าใหม่ */
+    + 'thead{ display:table-header-group; }'
+    + 'tbody tr{ page-break-inside:avoid; }'
+    + 'th{ background:#6200EA; color:#fff; font-weight:500; padding:6px 4px; text-align:left; }'
+    + 'td{ padding:5px 4px; border-bottom:1px solid #EFEAF8; font-weight:300; color:#222; }'
+    + 'tbody tr:nth-child(even) td{ background:#FBFAFE; }'
+    + 'tr.ok td{ color:#00893d; }'
+    + '.c0{ width:30px; text-align:center; } .c2{ font-weight:500; white-space:nowrap; }'
+    + '.c5,.c6,.c8{ white-space:nowrap; } .c7{ text-align:right; white-space:nowrap; }'
+    + '.ft{ margin-top:auto; padding-top:26px; display:flex; justify-content:space-between;'
+    +   ' font-size:10.5px; color:#555; font-weight:300; }'
+    + '@media print{ body{ background:#fff; } .page{ margin:0; } }';
+
+  function repFileName(ext){
+    return ('รายงานประกันภัยรถ_' + (TYPE ? typeLabel(TYPE) : 'ทั้งหมด') + '_'
+            + new Date().toISOString().slice(0, 10)).replace(/\s/g, '') + '.' + ext;
+  }
+
   function exportReport(){
-    Swal.fire({ title:'กำลังสร้างรายงาน…', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
-    api('ins_report', TYPE ? { type: TYPE } : {}).then(r=>{
+    Swal.fire({ title:'กำลังดึงข้อมูล…', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+    api('ins_report', TYPE ? { type: TYPE } : {}).then(function (r) {
       const rows = r.rows || [];
       if(!rows.length){ Swal.fire('ไม่มีข้อมูล','ยังไม่มีกรมธรรม์ให้ออกรายงาน','info'); return; }
-      const head = ['ประเภท','เลขกรมธรรม์','ทะเบียน','จังหวัด','ยี่ห้อ','รุ่น','เลขตัวถัง','ปีรถ',
-                    'วันเริ่มคุ้มครอง','วันสิ้นสุด','เหลือ (วัน)','เบี้ยรวม','สถานะ','เล่มใหม่','คุ้มครองใหม่ถึง'];
-      const body = rows.map(p=>[p.type,p.policy_no,p.plate,p.province,p.brand,p.model,p.chassis,p.year,
-                    p.start_date,p.end_date,p.days_left,p.premium_total,
-                    p.status==='renewed'?'ต่อแล้ว':'ยังไม่ต่อ',p.renewed_policy_no,p.renewed_end_date]);
-      const html = '<meta charset="utf-8"><table border="1"><tr>' + head.map(h=>'<th>'+h+'</th>').join('')
-        + '</tr>' + body.map(r2=>'<tr>' + r2.map(c=>'<td>'+esc(c)+'</td>').join('') + '</tr>').join('') + '</table>';
-      const blob = new Blob(['\ufeff' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'รายงานประกันภัยรถ_' + (TYPE ? typeLabel(TYPE) : 'ทั้งหมด') + '_' + new Date().toISOString().slice(0,10) + '.xls';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      Swal.fire({ title:'ดาวน์โหลดแล้ว', html: rows.length + ' รายการ · เบี้ยรวม ' + baht(r.summary.premium_total) + ' บาท',
-                  icon:'success', confirmButtonColor:'#6200EA' });
-    }).catch(()=> Swal.fire('ออกรายงานไม่สำเร็จ','ลองใหม่อีกครั้ง','error'));
+      return Swal.fire({
+        title: 'ออกรายงาน ' + rows.length + ' ฉบับ',
+        html: '<div style="font-size:13px;color:#888;font-weight:300">เลือกรูปแบบไฟล์</div>',
+        showDenyButton: true, showCancelButton: true,
+        confirmButtonText: 'Excel', denyButtonText: 'PDF', cancelButtonText: 'JPEG',
+        confirmButtonColor: '#1D6F42', denyButtonColor: '#B3261E', cancelButtonColor: '#6200EA'
+      }).then(function (pick) {
+        if(pick.isConfirmed) return repExcel(rows, r.summary);
+        if(pick.isDenied)    return repPdf(rows);
+        // กดปุ่ม JPEG เท่านั้น ถ้ากดปิดหน้าต่างหรือ Esc ให้เงียบไป
+        if(pick.dismiss === Swal.DismissReason.cancel) return repJpeg(rows);
+      });
+    }).catch(function () { Swal.fire('ออกรายงานไม่สำเร็จ','ลองใหม่อีกครั้ง','error'); });
+  }
+
+  function repExcel(rows, summary){
+    const head = REP_COLS.map(c => '<th>' + c[0] + '</th>').join('');
+    const body = rows.map(p => '<tr>' + REP_COLS.map(c => '<td>' + esc(c[1](p)) + '</td>').join('') + '</tr>').join('');
+    const html = '<meta charset="utf-8"><table border="1"><tr>' + head + '</tr>' + body + '</table>';
+    const blob = new Blob(['﻿' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = repFileName('xls');
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1500);
+    Swal.fire({ title:'ดาวน์โหลดแล้ว',
+                html: rows.length + ' รายการ · เบี้ยรวม ' + baht(summary && summary.premium_total) + ' บาท',
+                icon:'success', confirmButtonColor:'#6200EA' });
+  }
+
+  function repPdf(rows){
+    const w = window.open('', '_blank');
+    if(!w){ Swal.fire('เปิดหน้าต่างไม่ได้','เบราว์เซอร์บล็อก popup อยู่ กรุณาอนุญาตแล้วลองใหม่','warning'); return; }
+    w.document.write('<!doctype html><html lang="th"><head><meta charset="utf-8">'
+      + '<title>รายงานประกันภัยรถ</title>'
+      + '<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">'
+      + '<style>' + REP_CSS + '</style></head><body>' + repA4Html(rows) + '</body></html>');
+    w.document.close();
+    // รอฟอนต์โหลดก่อนสั่งพิมพ์ ไม่งั้นตัวหนังสือจะเพี้ยน
+    const go = function(){ setTimeout(function(){ w.focus(); w.print(); }, 400); };
+    if(w.document.fonts && w.document.fonts.ready) w.document.fonts.ready.then(go); else w.onload = go;
+    Swal.close();
+  }
+
+  function repJpeg(rows){
+    Swal.fire({ title:'กำลังสร้างรูป…', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+    loadH2C().then(function (h2c) {
+      let stage = document.getElementById('a4Stage');
+      if(!stage){ stage = document.createElement('div'); stage.id = 'a4Stage'; document.body.appendChild(stage); }
+      stage.innerHTML = '<style>' + REP_CSS + '</style>' + repA4Html(rows);
+      const page = stage.querySelector('.page');
+      // รายการเยอะ หน้าจะยาวกว่ากระดาษปกติมาก ลดความละเอียดลงกันรูปใหญ่จนเบราว์เซอร์สร้างไม่ไหว
+      const scale = rows.length > 120 ? 1 : 2;
+      return h2c(page, { scale: scale, backgroundColor:'#ffffff', useCORS:true }).then(function (canvas) {
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/jpeg', 0.92);
+        a.download = repFileName('jpg');
+        a.click();
+        stage.innerHTML = '';
+        Swal.fire({ title:'ดาวน์โหลดแล้ว', html: rows.length + ' รายการ',
+                    icon:'success', confirmButtonColor:'#6200EA' });
+      });
+    }).catch(function (e) { Swal.fire('สร้างรูปไม่สำเร็จ', e.message || 'ลองใหม่อีกครั้ง', 'error'); });
   }
 </script>
 </body>
