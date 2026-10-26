@@ -186,6 +186,24 @@
     .btn-del-doc { background: #FFEBEE; color: #C62828; }
     .empty-state { text-align: center; background: white; padding: 40px; border-radius: 20px; margin-top: 20px; }
   </style>
+  <script>
+    /* Doc Control → Supabase (2026-10-26): ทุกคำสั่งที่เคยยิง Google Apps Script ส่งไป edge doc-api แทน
+       แนบ LIFF access token ไปด้วย เซิร์ฟเวอร์ตรวจตัวตนกับ LINE เอง (ไม่เชื่อ userId ที่หน้าเว็บส่ง) · คำตอบรูปแบบเดิมของ GAS */
+    (function () {
+      var EDGE = 'https://wljqbtsqvknxuooyulfv.supabase.co/functions/v1/doc-api?forceFunctionRegion=ap-northeast-1';
+      var orig = window.fetch.bind(window);
+      window.fetch = function (input, init) {
+        var url = typeof input === 'string' ? input : (input && input.url) || '';
+        if (url.indexOf('https://script.google.com/macros/') !== 0) return orig(input, init);
+        var body = {};
+        try { new URL(url).searchParams.forEach(function (v, k) { body[k] = v; }); } catch (e) {}
+        if (init && typeof init.body === 'string') { try { var b = JSON.parse(init.body); for (var k in b) body[k] = b[k]; } catch (e) {} }
+        delete body.t;
+        try { body.access_token = (window.liff && liff.getAccessToken && liff.getAccessToken()) || ''; } catch (e) { body.access_token = ''; }
+        return orig(EDGE, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+      };
+    })();
+  </script>
 </head>
 <body>
 
@@ -261,6 +279,7 @@
     <select class="view-sel" id="ownerSel" onchange="onOwnerChange(this.value)" title="เลือกดูเอกสารของใคร" hidden>
       <option value="__me__">เอกสารของฉัน</option>
     </select>
+    <button class="view-sel" id="userAdminBtn" onclick="openUserAdmin()" title="อนุมัติผู้ใช้ใหม่ / ปิดสิทธิ์" hidden>👥 ผู้ใช้</button>
     <button class="view-btn act" onclick="exportDocs()">
       <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       รายงาน
@@ -366,6 +385,7 @@
           IS_DEV = !!data.isDev;
           // ปุ่มโหมดรวมโผล่เฉพาะผู้ดูแล สิทธิ์จริงเช็คที่เซิร์ฟเวอร์อีกชั้น
           if(IS_DEV) loadAllDocs();      // เตรียมรายชื่อไว้เงียบ ๆ dropdown จะโผล่เมื่อพร้อม
+          document.getElementById('userAdminBtn').hidden = !IS_DEV;
           if(data.sysName) document.getElementById('systemName').innerText = "ชื่อในระบบ: " + data.sysName;
           if(data.sysDept) document.getElementById('systemDept').innerText = "แผนก: " + data.sysDept;
           
@@ -599,6 +619,48 @@
       }
       updateCounters();
       filterData();
+    }
+
+    // ===== ผู้ดูแล: อนุมัติผู้ใช้ (เดิมแก้สถานะในชีต LINE_Config) =====
+    // ผู้ใช้สมัครผ่านแชต Doc Control (พิมพ์ชื่อ → เลือกแผนก) แล้วรออนุมัติ · อนุมัติแล้วระบบส่งข้อความแจ้งในไลน์ให้
+    const U_ST = { Active: ['ใช้งาน', '#1B7F3B', '#E7F5EE'], InActive: ['รออนุมัติ', '#8A5A0B', '#FEF0D9'], Wait_Name: ['ยังกรอกไม่ครบ', '#5F5E5A', '#EFEFEF'], Wait_Role: ['ยังกรอกไม่ครบ', '#5F5E5A', '#EFEFEF'] };
+    function userAdminHTML(users) {
+      const order = { InActive: 0, Wait_Role: 1, Wait_Name: 2, Active: 3 };
+      users.sort(function (a, b) { return (order[a.status] ?? 9) - (order[b.status] ?? 9) || String(a.name).localeCompare(String(b.name), 'th'); });
+      return '<div style="text-align:left;max-height:60vh;overflow:auto">' + users.map(function (u) {
+        const st = U_ST[u.status] || [u.status, '#5F5E5A', '#EFEFEF'];
+        const btn = u.status === 'Active'
+          ? '<button data-uid="' + docEsc(u.uid) + '" data-st="InActive" style="border:1px solid #C62828;color:#C62828;background:#fff;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer">ปิดสิทธิ์</button>'
+          : '<button data-uid="' + docEsc(u.uid) + '" data-st="Active" style="border:none;color:#fff;background:#1B7F3B;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer">อนุมัติ</button>';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid #eee">'
+          + '<div style="flex:1;min-width:0"><b style="font-size:14px">' + (docEsc(u.name) || '<span style="color:#999">(ยังไม่กรอกชื่อ)</span>') + '</b>'
+          + '<div style="font-size:12px;color:#777">' + (docEsc(u.dept) || '-') + ' · <span style="font-family:monospace">' + docEsc(u.masked) + '</span></div></div>'
+          + '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;color:' + st[1] + ';background:' + st[2] + '">' + st[0] + '</span>' + btn + '</div>';
+      }).join('') + '</div>';
+    }
+    function openUserAdmin() {
+      Swal.fire({ title: 'ผู้ใช้ระบบ Doc Control', html: '<div style="padding:20px;color:#888">กำลังโหลด…</div>', showConfirmButton: false, showCloseButton: true, width: 560,
+        didOpen: loadUserAdmin });
+    }
+    function loadUserAdmin() {
+      fetch(GAS_API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'dc_users_list' }) })
+        .then(r => r.json())
+        .then(function (d) {
+          const box = Swal.getHtmlContainer(); if (!box) return;
+          if (d.status !== 'success') { box.innerHTML = '<div style="color:#C62828">' + docEsc(d.message || 'โหลดไม่สำเร็จ') + '</div>'; return; }
+          box.innerHTML = userAdminHTML(d.users || []);
+          box.querySelectorAll('button[data-uid]').forEach(function (b) {
+            b.onclick = function () {
+              b.disabled = true; b.textContent = '…';
+              fetch(GAS_API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'dc_user_set', uid: b.dataset.uid, status: b.dataset.st }) })
+                .then(r => r.json()).then(function (res) {
+                  if (res.status !== 'success') { Swal.showValidationMessage(res.message || 'บันทึกไม่สำเร็จ'); b.disabled = false; return; }
+                  loadUserAdmin();
+                }).catch(function () { Swal.showValidationMessage('เชื่อมต่อไม่ได้ ลองใหม่'); b.disabled = false; });
+            };
+          });
+        })
+        .catch(function () { const box = Swal.getHtmlContainer(); if (box) box.innerHTML = '<div style="color:#C62828">เชื่อมต่อไม่ได้</div>'; });
     }
 
     // ===== ออกรายงานเอกสาร =====

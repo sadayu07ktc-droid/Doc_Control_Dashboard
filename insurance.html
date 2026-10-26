@@ -300,6 +300,24 @@
     .pbtn:hover{ background:#EADCF7; }
     .pbtn.done{ background:#E8F5E9; color:#2E7D32; cursor:default; }
   </style>
+  <script>
+    /* Doc Control → Supabase (2026-10-26): ทุกคำสั่งที่เคยยิง Google Apps Script ส่งไป edge doc-api แทน
+       แนบ LIFF access token ไปด้วย เซิร์ฟเวอร์ตรวจตัวตนกับ LINE เอง (ไม่เชื่อ userId ที่หน้าเว็บส่ง) · คำตอบรูปแบบเดิมของ GAS */
+    (function () {
+      var EDGE = 'https://wljqbtsqvknxuooyulfv.supabase.co/functions/v1/doc-api?forceFunctionRegion=ap-northeast-1';
+      var orig = window.fetch.bind(window);
+      window.fetch = function (input, init) {
+        var url = typeof input === 'string' ? input : (input && input.url) || '';
+        if (url.indexOf('https://script.google.com/macros/') !== 0) return orig(input, init);
+        var body = {};
+        try { new URL(url).searchParams.forEach(function (v, k) { body[k] = v; }); } catch (e) {}
+        if (init && typeof init.body === 'string') { try { var b = JSON.parse(init.body); for (var k in b) body[k] = b[k]; } catch (e) {} }
+        delete body.t;
+        try { body.access_token = (window.liff && liff.getAccessToken && liff.getAccessToken()) || ''; } catch (e) { body.access_token = ''; }
+        return orig(EDGE, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+      };
+    })();
+  </script>
 </head>
 <body>
 
