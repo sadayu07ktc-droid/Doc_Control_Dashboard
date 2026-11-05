@@ -1868,7 +1868,7 @@
     return '<div class="page">'
       + '<div class="hd">'
       +   '<div><div class="t">รายงานประกันภัยรถ · ' + esc(label) + '</div>'
-      +   '<div class="s">ข้อมูล ณ ' + esc(today) + ' · ทั้งหมด ' + rows.length + ' ฉบับ</div></div>'
+      +   '<div class="s">' + (REP_FILTER.label ? 'ตัวกรอง: ' + esc(REP_FILTER.label) + ' · ' : '') + 'ข้อมูล ณ ' + esc(today) + ' · ทั้งหมด ' + rows.length + ' ฉบับ</div></div>'
       +   '<div class="co">SUKSOMBOON GROUP</div>'
       + '</div>'
       + '<div class="sm">'
@@ -1914,18 +1914,31 @@
 
   function repFileName(ext){
     return ('รายงานประกันภัยรถ_' + (TYPE ? typeLabel(TYPE) : 'ทั้งหมด')
+            + (REP_FILTER.label ? '_' + REP_FILTER.label.replace(/[\\/:*?"<>|]/g, '').replace(/ · /g, '_') : '')
             + '_' + (REP_CO ? coName(REP_CO) : 'ทุกบริษัท')
             + '_' + new Date().toISOString().slice(0, 10)).replace(/\s/g, '') + '.' + ext;
   }
 
   // บริษัทที่เลือกอยู่ตอนออกรายงาน ('' = ทุกบริษัท) ใช้ทั้งกรองแถว หัวรายงาน และชื่อไฟล์
   var REP_CO = '';
+  // ตัวกรองบนจอตอนกดออกรายงาน: คำค้นมาก่อน เพราะหน้าจอโชว์ผลค้นหาแทนการ์ดกลุ่ม ประเภทกรองที่เซิร์ฟเวอร์อยู่แล้ว
+  var REP_FILTER = { label:'' };
+  function repFilterNow(){
+    if(Q){ const q = Q.toLowerCase(); return { label:'ค้นหา ' + Q, test: p => matches(p, q) }; }
+    // จำนวนต้องตรงกับตัวเลขบนการ์ดสรุปและการ์ด LINE ซึ่งนับเฉพาะฉบับที่ยังไม่ต่อ
+    if(VIEW === 'soon') return { label:(ROUND ? 'รอบ ' + ROUND.label : 'ใกล้หมด') + ' · ยังไม่ต่อ',
+      test: p => p.status !== 'renewed' && !!p.end_date && (ROUND ? String(p.end_date).slice(0, 7) <= ROUND.last : p.days_left <= 90) };
+    if(VIEW === 'pending') return { label:'กลุ่มที่ต้องต่อ · ยังไม่ต่อ', test: p => p.status !== 'renewed' && !!p.end_date };
+    return { label:'', test: () => true };
+  }
 
   function exportReport(){
+    REP_FILTER = repFilterNow();
+    const fl = REP_FILTER.label ? 'ตามตัวกรอง: ' + esc(REP_FILTER.label) + ' · ' : '';
     Swal.fire({ title:'กำลังดึงข้อมูล…', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
     api('ins_report', TYPE ? { type: TYPE } : {}).then(async function (r) {
-      const all = r.rows || [];
-      if(!all.length){ Swal.fire('ไม่มีข้อมูล','ยังไม่มีกรมธรรม์ให้ออกรายงาน','info'); return; }
+      const all = (r.rows || []).filter(REP_FILTER.test);
+      if(!all.length){ Swal.fire('ไม่มีข้อมูล', REP_FILTER.label ? 'ไม่มีรายการตามตัวกรองนี้' : 'ยังไม่มีกรมธรรม์ให้ออกรายงาน','info'); return; }
 
       // รายชื่อบริษัทสร้างจากข้อมูลจริง เรียงตามจำนวนฉบับมากไปน้อย
       const count = {};
@@ -1935,9 +1948,11 @@
       cos.forEach(c => { opts[c] = coName(c) + ' (' + count[c] + ')'; });
       const blank = all.length - cos.reduce((a, c) => a + count[c], 0);
       if(blank) opts['(ว่าง)'] = 'ยังไม่ระบุบริษัท (' + blank + ')';
+      if(!(REP_CO in opts)) REP_CO = '';   // บริษัทที่เลือกครั้งก่อนอาจไม่มีในตัวกรองนี้
 
       const who = await Swal.fire({
         title: 'ออกรายงานของบริษัทไหน',
+        html: fl ? '<div style="font-size:13px;color:#888;font-weight:300">' + fl.replace(/ · $/, '') + '</div>' : undefined,
         input: 'select', inputOptions: opts, inputValue: REP_CO,
         showCancelButton: true, confirmButtonText: 'ถัดไป', cancelButtonText: 'ยกเลิก',
         confirmButtonColor: '#6200EA'
@@ -1952,7 +1967,7 @@
 
       const pick = await Swal.fire({
         title: 'ออกรายงาน ' + rows.length + ' ฉบับ',
-        html: '<div style="font-size:13px;color:#888;font-weight:300">'
+        html: '<div style="font-size:13px;color:#888;font-weight:300">' + fl
               + esc(REP_CO ? coName(REP_CO) : 'ทุกบริษัท') + ' · เลือกรูปแบบไฟล์</div>',
         showDenyButton: true, showCancelButton: true,
         confirmButtonText: 'Excel', denyButtonText: 'PDF', cancelButtonText: 'JPEG',
