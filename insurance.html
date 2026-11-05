@@ -331,7 +331,7 @@
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
     </div>
     <div class="lk-t" id="lkTitle">ใส่รหัสผ่าน</div>
-    <div class="lk-s" id="lkSub">ข้อมูลประกันภัยรถของกลุ่มบริษัท</div>
+    <div class="lk-s" id="lkSub">รหัสของคุณ · ลืมรหัสแจ้งผู้ดูแลระบบให้ล้างให้</div>
     <div class="lk-dots" id="lkDots"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="lk-err" id="lkErr"></div>
     <div class="pad" id="lkPad"></div>
@@ -465,7 +465,7 @@
   const MY_LIFF_ID = "2010379470-vQxXyuA8";
   const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxkHcKCsM853RD225LZ7wUnxnBZF1D5HoEXnJm7FaLBY8h12oppFDkYmERoQwoTs9cf6w/exec";
 
-  let GROUPS = [], TYPE = '', TOTAL = 0, CFG = null, UID = '', VIEW = 'all';
+  let GROUPS = [], TYPE = '', TOTAL = 0, CFG = null, ROUND = null, UID = '', VIEW = 'all', DEEP_DONE = false;
   let ALL_ROWS = [], Q = '', MISSING = null, MTAB = 'c';   // c = ขาด พรบ. · v = ขาดประกันภัย                 // รายการกรมธรรม์ทั้งหมด ไว้ค้นหาฝั่งหน้าเว็บ (ไม่ต้องยิง API ทุกตัวอักษร)
 
   /** ประเภท -> รหัสสี: v = ประกันภัย (ม่วง) · c = พรบ. (ฟ้า) */
@@ -520,17 +520,17 @@
   armLoadTimers();
 
   // ================= รหัสผ่าน 6 หลัก =================
-  const PIN_KEY = 'ssb_ins_pin_ok';
+  const pinKeyName = () => 'ssb_ins_pin_ok:' + UID;   // แยกตามบัญชี เครื่องเดียวกันเปลี่ยนคนใช้ต้องใส่รหัสของตัวเอง
   const PIN_MINUTES = 30;            // ผ่านแล้วจำไว้ 30 นาที พอให้ทำงานต่อเนื่องได้ แต่วางมือถือทิ้งไว้ก็ล็อกเอง
   let PIN_BUF = '', PIN_MODE = 'check', PIN_TMP = '', PIN_TRY = 0;
 
   function pinRemembered(){
     try{
-      const t = Number(localStorage.getItem(PIN_KEY) || 0);
+      const t = Number(localStorage.getItem(pinKeyName()) || 0);
       return t && (Date.now() - t) < PIN_MINUTES * 60 * 1000;
     }catch(e){ return false; }
   }
-  function rememberPin(){ try{ localStorage.setItem(PIN_KEY, String(Date.now())); }catch(e){} }
+  function rememberPin(){ try{ localStorage.setItem(pinKeyName(), String(Date.now())); }catch(e){} }
 
   /** ต่ออายุเวลาทุกครั้งที่ผู้ใช้ยังขยับอยู่ — 30 นาทีนับจากการใช้งานครั้งล่าสุด ไม่ใช่จากตอนใส่รหัส */
   function touchPin(){ if(pinRemembered()) rememberPin(); }
@@ -544,6 +544,7 @@
   });
 
   function relock(){
+    if(document.getElementById('lock').classList.contains('show')) return;   // ล็อกอยู่แล้ว (เช่นกำลังตั้งรหัสครั้งแรก) อย่าล้างขั้นตอน
     PIN_BUF=''; PIN_TMP=''; PIN_MODE='check';
     pinDots(); pinErr('');
     document.getElementById('lkTitle').textContent='ใส่รหัสผ่าน';
@@ -589,7 +590,7 @@
       }
       if(PIN_TMP !== pin){
         PIN_TMP = ''; PIN_BUF = ''; pinDots();
-        document.getElementById('lkTitle').textContent = 'ตั้งรหัสผ่านใหม่';
+        document.getElementById('lkTitle').textContent = 'ตั้งรหัสผ่านของคุณ';
         pinErr('รหัสสองครั้งไม่ตรงกัน เริ่มใหม่');
         return;
       }
@@ -651,11 +652,12 @@
       const lock = document.getElementById('lock');
       if(r && r.set === false){
         PIN_MODE = 'set';
-        document.getElementById('lkTitle').textContent = 'ตั้งรหัสผ่านใหม่';
-        document.getElementById('lkSub').innerHTML = 'ยังไม่มีใครตั้งรหัสสำหรับเมนูนี้<br>ตั้งเลข 6 หลักที่จะใช้ร่วมกันในทีม';
+        document.getElementById('lkTitle').textContent = 'ตั้งรหัสผ่านของคุณ';
+        document.getElementById('lkSub').innerHTML = 'เข้าครั้งแรก ตั้งเลข 6 หลักของคุณเอง<br>รหัสนี้ใช้ได้เฉพาะบัญชี LINE ของคุณ';
       }
       document.getElementById('load').style.display = 'none';
       lock.classList.add('show');
+      if(r && r.status !== 'success') pinErr(r.message || 'ตรวจสอบบัญชีไม่สำเร็จ');
     }).catch(()=>{            // ถามหลังบ้านไม่ได้ ก็อย่าปล่อยให้เข้าไปเฉยๆ
       document.getElementById('load').style.display = 'none';
       document.getElementById('lock').classList.add('show');
@@ -674,13 +676,19 @@
     return Promise.all([ api('ins_groups'), api('ins_config'), api('ins_list'), api('ins_missing'),
                          api('ins_sweep_state').catch(()=>null) ]).then(([g, c, l, m, sw])=>{
       clearTimeout(SLOW_T); clearTimeout(GIVEUP_T);
-      GROUPS = g.groups || []; TOTAL = g.total_policies || 0; CFG = (c && c.config) || null;
+      GROUPS = g.groups || []; TOTAL = g.total_policies || 0; CFG = (c && c.config) || null; ROUND = (c && c.round) || null;
       ALL_ROWS = (l && l.rows) || [];
       MISSING = (m && m.status === 'success') ? m : null;
       SWEEP = (sw && sw.status === 'success') ? sw.last : null;
       renderGapBar(); renderFileBar();
       render(); hideLoad();
-      const want = new URLSearchParams(location.search).get('g');   // ลิงก์จากการ์ด LINE
+      const qs = new URLSearchParams(location.search), want = qs.get('g');   // ลิงก์จากการ์ด LINE
+      if(qs.get('view') === 'soon' && !DEEP_DONE){   // การ์ดรอบ: เปิดมาที่รายการรอบนี้ของประเภทนั้น
+        DEEP_DONE = true;
+        const tb = document.querySelector('#typeBar button[data-t="' + qs.get('t') + '"]');
+        if(tb) setType(qs.get('t'), tb);
+        VIEW = 'soon'; render();
+      }
       if(want) setTimeout(()=>openGroup(want), 350);
       else setTimeout(maybeShowSweep, 500);   // ให้หน้าโหลดเสร็จก่อนค่อยเด้ง
       return true;
@@ -698,9 +706,12 @@
   function tone(g){
     if(g.done) return 'ok';
     if(g.days_left <= 30) return 'urgent';
-    if(g.days_left <= 60) return 'soon';
+    if(g.days_left <= 90) return 'soon';
     return 'far';
   }
+
+  /** อยู่ในรอบแจ้งปัจจุบัน = ยังต่อไม่ครบและหมดไม่เกินสิ้นรอบ ตรงกับการ์ด LINE รวมของค้างจากรอบก่อน */
+  function inRound(g){ return !g.done && (ROUND ? g.month <= ROUND.last : g.days_left <= 90); }
 
   function render(){
     // ตัวเลขบนการ์ดสรุปคิดจาก ทุกกลุ่มของประเภทที่เลือก เสมอ ไม่ใช่จากที่กรองอยู่
@@ -710,16 +721,16 @@
     let pol=0, pend=0, soon=0, premium=0, pendGroups=0;
     all.forEach(g=>{ pol+=g.count; pend+=g.pending; premium+=Number(g.premium_total)||0;
                      if(!g.done) pendGroups++;
-                     if(!g.done && g.days_left<=60) soon+=g.pending; });
+                     if(inRound(g)) soon+=g.pending; });
 
     let list = all;
     if(VIEW === 'pending') list = all.filter(g=>!g.done);
-    if(VIEW === 'soon')    list = all.filter(g=>!g.done && g.days_left<=60);
+    if(VIEW === 'soon')    list = all.filter(inRound);
 
     document.getElementById('kpis').innerHTML =
       kpi(pol, 'กรมธรรม์', 'var(--primary)', 'all', 'ดูทุกกลุ่ม') +
       kpi(pendGroups, 'กลุ่มที่ต้องต่อ', 'var(--secondary)', 'pending', 'เฉพาะกลุ่มที่ยังต่อไม่ครบ') +
-      kpi(soon, 'ใกล้หมด ≤60 วัน', soon ? 'var(--warn)' : '#BDBDBD', 'soon', 'เฉพาะกลุ่มที่เหลือไม่เกิน 60 วัน') +
+      kpi(soon, ROUND ? 'รอบ ' + esc(ROUND.label) : 'ใกล้หมด ≤90 วัน', soon ? 'var(--warn)' : '#BDBDBD', 'soon', 'ยังไม่ต่อ ในรอบนี้รวมของค้างจากรอบก่อน') +
       kpi(baht(premium), 'เบี้ยรวม (บาท)', 'var(--ok)', 'report', 'กดเพื่อออกรายงาน');
 
     const box = document.getElementById('groups');
@@ -739,7 +750,7 @@
     }
 
     if(!list.length){
-      const msg = VIEW === 'soon'    ? 'ไม่มีกลุ่มไหนเหลือไม่เกิน 60 วัน<br><small>ยังไม่ต้องรีบครับ</small>'
+      const msg = VIEW === 'soon'    ? 'ไม่มีรายการค้างต่อในรอบนี้<br><small>ยังไม่ต้องรีบครับ</small>'
                 : VIEW === 'pending' ? 'ทุกกลุ่มต่ออายุครบแล้ว'
                 : 'ยังไม่มีข้อมูลกรมธรรม์ในกลุ่มนี้';
       box.innerHTML = '<div class="empty">' + msg
@@ -760,7 +771,7 @@
         + '<div class="gcnt"><u>' + g.count + '</u><i>ฉบับ</i></div></div>'
         + '<div class="gmeta">'
         + '<span class="tbadge t-' + tcode(g.type) + '">' + esc(typeLabel(g.type)) + '</span>'
-        + '<span class="pill ' + (g.days_left<=30?'d':(g.days_left<=60?'w':'g')) + '">' + dayTx + '</span>'
+        + '<span class="pill ' + (g.days_left<=30?'d':(g.days_left<=90?'w':'g')) + '">' + dayTx + '</span>'
         + '<span class="pill">เบี้ย ' + baht(g.premium_total) + ' บาท</span>'
         + (g.done ? '<span class="pill g">ต่อครบแล้ว</span>'
                   : '<span class="pill">ต่อแล้ว ' + g.renewed + '/' + g.count + '</span>')
@@ -1465,12 +1476,12 @@
   /**
    * สีตามจำนวนวันที่เหลือ 3 ระดับ
    *   แดง  <= 30 วัน  ต้องรีบต่อแล้ว
-   *   เหลือง 31-60 วัน  เตรียมตัว
-   *   เขียว  > 60 วัน   ยังสบาย
+   *   เหลือง 31-90 วัน  เตรียมตัว
+   *   เขียว  > 90 วัน   ยังสบาย
    */
   function dayColor(days){
     if(days <= 30) return 'var(--danger)';
-    if(days <= 60) return 'var(--warn)';
+    if(days <= 90) return 'var(--warn)';
     return 'var(--ok)';
   }
 
@@ -1722,24 +1733,25 @@
 
   // ---------- ตั้งค่าแจ้งเตือน ----------
   async function openSettings(){
-    const cur = (CFG && CFG.lead_days || [60,30,7]).join(', ');
+    const cur = (CFG && CFG.lead_days || []).join(', ');
     const r = await Swal.fire({
       title: 'ตั้งค่าแจ้งเตือน',
+      html: ROUND ? 'แจ้งเป็นรอบ 3 เดือน ล่วงหน้า ' + (CFG.round_lead || 90) + ' วันก่อนรอบเริ่ม<br>รอบถัดไป <b>' + esc(ROUND.next_label) + '</b> แจ้งวันที่ <b>' + esc(ROUND.next_on_label) + '</b> เวลา ' + (CFG.send_hour || 9) + ':00 น.' : '',
       input: 'text', inputValue: cur,
-      inputLabel: 'แจ้งเตือนล่วงหน้ากี่วัน (คั่นด้วยจุลภาค)',
-      inputPlaceholder: '60, 30, 7',
-      footer: 'ระบบจะเตือนเป็น "กลุ่ม" เมื่อใบที่หมดเร็วที่สุดในกลุ่มเหลือเวลาตรงกับที่ตั้งไว้',
+      inputLabel: 'เตือนซ้ำรายเดือนก่อนหมดอายุกี่วัน (เว้นว่าง = ไม่เตือนซ้ำ)',
+      inputPlaceholder: 'เช่น 30, 7',
+      footer: 'การ์ดรอบรวมทุกฉบับที่ยังไม่ต่อ รวมของค้างจากรอบก่อน',
       showCancelButton: true, confirmButtonText: 'บันทึก', cancelButtonText: 'ยกเลิก',
       confirmButtonColor: '#6200EA', cancelButtonColor: '#9E9E9E'
     });
     if(!r.isConfirmed) return;
-    const days = String(r.value||'').split(/[,\s]+/).map(Number).filter(n=>n>0);
-    if(!days.length){ Swal.fire('ค่าไม่ถูกต้อง','ใส่จำนวนวันอย่างน้อยหนึ่งค่า เช่น 60, 30, 7','warning'); return; }
+    const raw = String(r.value||'').trim(), days = raw ? raw.split(/[,\s]+/).map(Number) : [];
+    if(days.some(n=>!(n>0))){ Swal.fire('ค่าไม่ถูกต้อง','ใส่จำนวนวันคั่นด้วยจุลภาค เช่น 30, 7 หรือเว้นว่าง','warning'); return; }
     Swal.fire({ title:'กำลังบันทึก…', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
     const res = await post({ action:'ins_save_config', config: Object.assign({}, CFG||{}, { lead_days: days }) });
     if(res.status === 'success'){
       CFG = res.config;
-      Swal.fire({ title:'บันทึกแล้ว', html:'เตือนล่วงหน้า ' + CFG.lead_days.join(' / ') + ' วัน',
+      Swal.fire({ title:'บันทึกแล้ว', html: CFG.lead_days.length ? 'เตือนซ้ำก่อนหมด ' + CFG.lead_days.join(' / ') + ' วัน' : 'แจ้งเฉพาะการ์ดรอบ ไม่เตือนซ้ำ',
                   icon:'success', confirmButtonColor:'#6200EA' });
     } else Swal.fire('บันทึกไม่สำเร็จ', res.message || '', 'error');
   }
