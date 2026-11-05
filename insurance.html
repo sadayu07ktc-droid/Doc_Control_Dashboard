@@ -1736,7 +1736,7 @@
     const cur = (CFG && CFG.lead_days || []).join(', ');
     const r = await Swal.fire({
       title: 'ตั้งค่าแจ้งเตือน',
-      html: ROUND ? 'แจ้งเป็นรอบ 3 เดือน ล่วงหน้า ' + (CFG.round_lead || 90) + ' วันก่อนรอบเริ่ม<br>รอบถัดไป <b>' + esc(ROUND.next_label) + '</b> แจ้งวันที่ <b>' + esc(ROUND.next_on_label) + '</b> เวลา ' + (CFG.send_hour || 9) + ':00 น.' : '',
+      html: ROUND ? 'แจ้งเป็นรอบ 3 เดือน วันที่ 1 ของเดือนก่อนรอบเริ่ม<br>รอบถัดไป <b>' + esc(ROUND.next_label) + '</b> แจ้งวันที่ <b>' + esc(ROUND.next_on_label) + '</b> เวลา ' + (CFG.send_hour || 9) + ':00 น.' : '',
       input: 'text', inputValue: cur,
       inputLabel: 'เตือนซ้ำรายเดือนก่อนหมดอายุกี่วัน (เว้นว่าง = ไม่เตือนซ้ำ)',
       inputPlaceholder: 'เช่น 30, 7',
