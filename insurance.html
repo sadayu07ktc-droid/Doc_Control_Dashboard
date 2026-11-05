@@ -660,7 +660,11 @@
     liff.init({ liffId: MY_LIFF_ID }).then(()=>{
       if(liff.isLoggedIn()){
         liff.getProfile().then(p=>{ UID = p.userId; gate(); }).catch(()=>gate());
-      } else { liff.login(); }
+      } else {
+        // ไม่ระบุปลายทาง LINE จะส่งกลับ Endpoint ของ LIFF = หน้า Dashboard · ปลายทางต้องขึ้นต้นด้วย Endpoint ไม่งั้น LINE ขึ้น error
+        const here = location.href.split('#')[0];
+        liff.login(here.indexOf('https://ssb-supply.pages.dev/Doc_Control_Dashboard/') === 0 ? { redirectUri: here } : {});
+      }
     }).catch(()=>gate());       // เปิดนอก LINE ก็ยังดูข้อมูลได้ แต่ยังต้องผ่านรหัส
   };
 
