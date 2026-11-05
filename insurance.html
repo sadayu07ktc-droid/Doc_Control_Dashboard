@@ -1761,6 +1761,7 @@
     const lead = [[0,'เดือนแรกของรอบ']].concat([1,2,3,4,5,6].map(n => [n, n + ' เดือนก่อนรอบเริ่ม']));
     const days = Array.from({length:28}, (_, i) => [i + 1, 'วันที่ ' + (i + 1)]);
     const hours = Array.from({length:15}, (_, i) => [i + 6, String(i + 6).padStart(2, '0') + ':00 น.']);
+    const remind = [[-1,'ไม่เตือนซ้ำ'],[0,'ฉบับที่หมดเดือนนั้น'],[1,'หมดเดือนนั้นและเดือนหน้า'],[2,'หมดเดือนนั้นและอีก 2 เดือน'],[3,'หมดเดือนนั้นและอีก 3 เดือน']];
     SHEET_MODE = 'settings'; CUR_GROUP = null;
     closeOut();
     document.getElementById('sheetOut').hidden = true;
@@ -1772,7 +1773,7 @@
       +   '<label class="set-f">ส่งวันที่<select id="setDay">' + setOpts(days, R.send_day || 1) + '</select></label>'
       +   '<label class="set-f">เวลาส่ง<select id="setHour">' + setOpts(hours, c.send_hour || 9) + '</select></label>'
       + '</div>'
-      + '<label class="set-f">เตือนซ้ำก่อนหมดอายุ (วัน)<input id="setRepeat" inputmode="numeric" autocomplete="off" placeholder="เช่น 30, 7" value="' + esc((c.lead_days || []).join(', ')) + '"><small>เว้นว่าง = แจ้งเฉพาะการ์ดรอบ</small></label>'
+      + '<label class="set-f">เตือนซ้ำทุกเดือน<select id="setRemind">' + setOpts(remind, c.remind_ahead_months == null ? -1 : c.remind_ahead_months) + '</select><small>ส่งวันและเวลาเดียวกับการ์ดรอบ รวมฉบับค้าง · วันที่มีการ์ดรอบแล้วไม่ส่งซ้ำ</small></label>'
       + '<div id="setStatus" class="set-note" role="status"></div>'
       + '<table class="set-tb" id="setPlan"></table>'
       + '<div class="set-btns"><button type="button" class="no" onclick="closeSheet()">ยกเลิก</button><button type="button" class="ok" id="setSave" onclick="saveSettings()">บันทึก</button></div>'
@@ -1781,9 +1782,8 @@
     setDraw(ROUND, ROUND_ST);
   }
   function setRead(){
-    const raw = document.getElementById('setRepeat').value.trim(), lead_days = raw ? raw.split(/[,\s]+/).filter(Boolean).map(Number) : [];
     return { round_months: +document.getElementById('setMonths').value, round_lead_months: +document.getElementById('setLead').value,
-             round_send_day: +document.getElementById('setDay').value, send_hour: +document.getElementById('setHour').value, lead_days };
+             round_send_day: +document.getElementById('setDay').value, send_hour: +document.getElementById('setHour').value, remind_ahead_months: +document.getElementById('setRemind').value };
   }
   function setDraw(round, st, error){
     const box = document.getElementById('setStatus'), plan = document.getElementById('setPlan'), save = document.getElementById('setSave');
@@ -1797,11 +1797,10 @@
     box.innerHTML = st && st.due ? 'รอบ <b>' + esc(round.label) + '</b> ยังไม่ได้แจ้ง จะส่งการ์ด <b>' + esc(when) + '</b>' : 'รอบ <b>' + esc(round.label) + '</b> แจ้งแล้ว';
     plan.innerHTML = '<caption>รอบถัดไป</caption>' + (round.schedule || []).map(x => '<tr><td>' + esc(x.label) + '</td><td>' + esc(x.on_label) + ' ' + esc(at) + '</td></tr>').join('');
   }
-  // ช่องเตือนซ้ำพิมพ์ผิดเตือนทันที ไม่ต้องรอเซิร์ฟเวอร์ · ตารางคำนวณที่เซิร์ฟเวอร์ที่เดียว ไม่ให้หน้าเว็บกับตัวส่งจริงคิดคนละแบบ
+  // ตารางคำนวณที่เซิร์ฟเวอร์ที่เดียว ไม่ให้หน้าเว็บกับตัวส่งจริงคิดคนละแบบ
   function setChanged(){
     clearTimeout(SET_T);
     const seq = ++SET_SEQ, cfg = setRead();
-    if(cfg.lead_days.some(n => !(Number.isInteger(n) && n >= 1 && n <= 365)) || cfg.lead_days.length > 6){ setDraw(null, null, 'เตือนซ้ำใส่ได้ไม่เกิน 6 ค่า ค่าละ 1–365 วัน คั่นด้วยจุลภาค'); return; }
     document.getElementById('setSave').disabled = true;
     SET_T = setTimeout(() => {
       post({ action:'ins_round_preview', config: cfg }).then(r => {
