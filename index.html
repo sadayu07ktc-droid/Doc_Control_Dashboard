@@ -823,20 +823,60 @@
       });
     }
 
-    function docExcel(rows){
+    // \u0e44\u0e1f\u0e25\u0e4c Excel \u0e08\u0e23\u0e34\u0e07 (.xlsx) \u2014 \u0e40\u0e14\u0e34\u0e21\u0e40\u0e1b\u0e47\u0e19 HTML \u0e1b\u0e25\u0e2d\u0e21\u0e19\u0e32\u0e21\u0e2a\u0e01\u0e38\u0e25 .xls \u0e0b\u0e36\u0e48\u0e07 Excel \u0e23\u0e38\u0e48\u0e19\u0e43\u0e2b\u0e21\u0e48\u0e1a\u0e25\u0e47\u0e2d\u0e01/\u0e40\u0e1b\u0e34\u0e14\u0e44\u0e21\u0e48\u0e02\u0e36\u0e49\u0e19
+    var DOC_XLSXP = null;
+    function docLoadXlsx(){
+      if(window.XLSX && XLSX.utils) return Promise.resolve(window.XLSX);
+      if(DOC_XLSXP) return DOC_XLSXP;
+      DOC_XLSXP = new Promise(function (res, rej) {
+        const sc = document.createElement('script');
+        sc.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+        sc.onload = () => res(window.XLSX);
+        sc.onerror = () => { DOC_XLSXP = null; rej(new Error('load xlsx')); };
+        document.head.appendChild(sc);
+      });
+      return DOC_XLSXP;
+    }
+
+    async function docExcel(rows){
       const cols = docCols();
-      const head = cols.map(c => '<th>' + c[0] + '</th>').join('');
-      const body = rows.map((d, i) => '<tr>' + cols.map(function (c) {
-          const col = c[3] ? c[3](d) : '';
-          const st = col ? (' style="color:' + col + ';font-weight:bold"') : '';
-          return '<td' + st + '>' + docEsc(c[1](d, i)) + '</td>';
-        }).join('') + '</tr>').join('');
-      const html = '<meta charset="utf-8"><h3>' + docEsc(docTitle()) + '</h3>'
-                 + '<table border="1"><tr>' + head + '</tr>' + body + '</table>';
-      const blob = new Blob(['\ufeff' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
+      let X;
+      try { X = await docLoadXlsx(); }
+      catch(e){ Swal.fire('\u0e42\u0e2b\u0e25\u0e14\u0e15\u0e31\u0e27\u0e2a\u0e23\u0e49\u0e32\u0e07 Excel \u0e44\u0e21\u0e48\u0e44\u0e14\u0e49','\u0e15\u0e23\u0e27\u0e08\u0e2d\u0e34\u0e19\u0e40\u0e17\u0e2d\u0e23\u0e4c\u0e40\u0e19\u0e47\u0e15\u0e41\u0e25\u0e49\u0e27\u0e25\u0e2d\u0e07\u0e43\u0e2b\u0e21\u0e48','error'); return; }
+      const line = { style:'thin', color:{ rgb:'D9D2EC' } };
+      const box = { top:line, bottom:line, left:line, right:line };
+      const hex = c => { const m = String(c || '').match(/#([0-9a-f]{6}|[0-9a-f]{3})\b/i); if(!m) return '';
+                         const h = m[1].length === 3 ? m[1].replace(/./g, '$&$&') : m[1]; return h.toUpperCase(); };
+      const cell = (v, s) => (typeof v === 'number' && isFinite(v)) ? { v:v, t:'n', s:s } : { v:(v == null ? '' : String(v)), t:'s', s:s };
+      const aoa = [
+        [cell(docTitle(), { font:{ bold:true, sz:15, color:{ rgb:'3D0099' } } })],
+        cols.map(c => cell(c[0], { font:{ bold:true, color:{ rgb:'FFFFFF' } }, fill:{ fgColor:{ rgb:'6200EA' } },
+          alignment:{ horizontal:'center', vertical:'center', wrapText:true }, border:box }))
+      ];
+      rows.forEach(function (d, i) {
+        aoa.push(cols.map(function (c) {
+          const s = { border:box, alignment:{ vertical:'center' } };
+          if(i % 2) s.fill = { fgColor:{ rgb:'F7F4FD' } };
+          const col = hex(c[3] ? c[3](d) : '');
+          if(col) s.font = { bold:true, color:{ rgb:col } };
+          return cell(c[1](d, i), s);
+        }));
+      });
+      const ws = X.utils.aoa_to_sheet(aoa);
+      ws['!merges'] = [{ s:{ r:0, c:0 }, e:{ r:0, c:cols.length - 1 } }];
+      ws['!cols'] = cols.map(function (c, j) {
+        let w = String(c[0]).length;
+        aoa.slice(2).forEach(r => { w = Math.max(w, String(r[j].v).length); });
+        return { wch: Math.min(42, Math.max(6, w + 2)) };
+      });
+      ws['!views'] = [{ state:'frozen', ySplit:2, topLeftCell:'A3' }];
+      const wb = X.utils.book_new();
+      X.utils.book_append_sheet(wb, ws, '\u0e23\u0e32\u0e22\u0e07\u0e32\u0e19');
+      // octet-stream: \u0e40\u0e1a\u0e23\u0e32\u0e27\u0e4c\u0e40\u0e0b\u0e2d\u0e23\u0e4c\u0e43\u0e19\u0e41\u0e2d\u0e1b LINE \u0e08\u0e30\u0e14\u0e32\u0e27\u0e19\u0e4c\u0e42\u0e2b\u0e25\u0e14\u0e41\u0e17\u0e19\u0e17\u0e35\u0e48\u0e08\u0e30\u0e1e\u0e22\u0e32\u0e22\u0e32\u0e21\u0e40\u0e1b\u0e34\u0e14\u0e40\u0e2d\u0e07
+      const blob = new Blob([X.write(wb, { bookType:'xlsx', type:'array' })], { type:'application/octet-stream' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = docFile('xls');
+      a.download = docFile('xlsx');
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(function(){ URL.revokeObjectURL(a.href); docUnstick(); }, 800);
       setTimeout(function(){ Swal.fire({ title:'ดาวน์โหลดแล้ว', html: rows.length + ' รายการ', icon:'success', confirmButtonColor:'#6200EA' }); }, 120);

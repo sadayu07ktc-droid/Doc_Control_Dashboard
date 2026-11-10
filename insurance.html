@@ -1412,22 +1412,80 @@
     if(kind === 'jpeg')  return outJpeg();
   }
 
-  function outExcel(){
-    const sp = sheetSpec();
-    const rows = sp.rows || [];
-    const head = sp.cols.map(c => '<th>' + c[0] + '</th>').join('');
-    const body = rows.map((p, i) =>
-      '<tr>' + sp.cols.map(c => '<td>' + esc(c[1](p, i)) + '</td>').join('') + '</tr>').join('');
-    const html = '<meta charset="utf-8">'
-      + '<h3>' + esc(sheetSpec().head) + '</h3>'
-      + '<table border="1"><tr>' + head + '</tr>' + body + '</table>';
-    const blob = new Blob(['﻿' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
+  /**
+   * ไฟล์ Excel จริง (.xlsx) — เดิมเป็น HTML ปลอมนามสกุล .xls ซึ่ง Excel รุ่นใหม่บล็อก/เปิดไม่ขึ้น
+   * ใช้ xlsx-js-style (โหลดตอนกดครั้งแรก) จะได้หัวสี เส้นตาราง และความกว้างคอลัมน์
+   */
+  var XLSXP = null;
+  function loadXlsx(){
+    if(window.XLSX && XLSX.utils) return Promise.resolve(window.XLSX);
+    if(XLSXP) return XLSXP;
+    XLSXP = new Promise(function (res, rej) {
+      const sc = document.createElement('script');
+      sc.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+      sc.onload = () => res(window.XLSX);
+      sc.onerror = () => { XLSXP = null; rej(new Error('load xlsx')); };
+      document.head.appendChild(sc);
+    });
+    return XLSXP;
+  }
+
+  /** spec = { title, sub, file, sheet, cols:[[หัว, ชนิด]], rows:[[ค่า…]] } ชนิด num|money ชิดขวา */
+  async function saveXlsx(spec){
+    let X;
+    try { X = await loadXlsx(); }
+    catch(e){ swalAfter({ title:'โหลดตัวสร้าง Excel ไม่ได้', text:'ตรวจอินเทอร์เน็ตแล้วลองใหม่', icon:'error' }); return false; }
+    const n = spec.cols.length;
+    const line = { style:'thin', color:{ rgb:'D9D2EC' } };
+    const box = { top:line, bottom:line, left:line, right:line };
+    const cell = (v, s) => (typeof v === 'number' && isFinite(v))
+      ? { v:v, t:'n', z:(Number.isInteger(v) ? '#,##0' : '#,##0.00'), s:s }
+      : { v:(v == null ? '' : String(v)), t:'s', s:s };
+    const aoa = [
+      [cell(spec.title, { font:{ bold:true, sz:15, color:{ rgb:'3D0099' } } })],
+      [cell(spec.sub || '', { font:{ sz:10, color:{ rgb:'777777' } } })],
+      spec.cols.map(c => cell(c[0], { font:{ bold:true, color:{ rgb:'FFFFFF' } }, fill:{ fgColor:{ rgb:'6200EA' } },
+        alignment:{ horizontal:'center', vertical:'center', wrapText:true }, border:box }))
+    ];
+    spec.rows.forEach(function (r, i) {
+      const bg = i % 2 ? { fill:{ fgColor:{ rgb:'F7F4FD' } } } : {};
+      aoa.push(r.map((v, j) => {
+        const k = spec.cols[j][1];
+        if(typeof v === 'string' && (k === 'money' || k === 'num') && /^-?[\d,]+(\.\d+)?$/.test(v)) v = Number(v.replace(/,/g, ''));
+        return cell(v, Object.assign({ border:box, alignment:{ vertical:'center',
+          horizontal:(k === 'money' || k === 'num') ? 'right' : 'left' } }, bg));
+      }));
+    });
+    const ws = X.utils.aoa_to_sheet(aoa);
+    ws['!merges'] = [{ s:{ r:0, c:0 }, e:{ r:0, c:n - 1 } }, { s:{ r:1, c:0 }, e:{ r:1, c:n - 1 } }];
+    ws['!cols'] = spec.cols.map((c, j) => {
+      let w = String(c[0]).length;
+      spec.rows.forEach(r => { w = Math.max(w, String(r[j] == null ? '' : r[j]).length); });
+      return { wch: Math.min(42, Math.max(6, w + 2)) };
+    });
+    ws['!rows'] = [{ hpt:24 }, { hpt:16 }, { hpt:22 }];
+    ws['!freeze'] = { xSplit:0, ySplit:3 };
+    ws['!views'] = [{ state:'frozen', ySplit:3, topLeftCell:'A4' }];
+    const wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, ws, String(spec.sheet || 'รายงาน').replace(/[\\/?*\[\]:]/g, '').slice(0, 31));
+    const buf = X.write(wb, { bookType:'xlsx', type:'array' });
+    // octet-stream: เบราว์เซอร์ในแอป LINE จะดาวน์โหลดแทนที่จะพยายามเปิดเอง
+    const blob = new Blob([buf], { type:'application/octet-stream' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = outFileName('xls');
-    a.click();
+    a.download = spec.file;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+    return true;
+  }
+
+  async function outExcel(){
+    const sp = sheetSpec();
+    const rows = sp.rows || [];
+    await saveXlsx({ title:sp.head, sub:sp.sub, sheet:sp.head, file:outFileName('xlsx'),
+      cols: sp.cols.map(c => [c[0], c[2] || '']),
+      rows: rows.map((p, i) => sp.cols.map(c => c[1](p, i))) });
     setTimeout(unstick, 60);
-    setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
   }
 
   // PDF: เปิดหน้าต่างขนาด A4 แล้วเรียกพิมพ์ ผู้ใช้เลือก "บันทึกเป็น PDF" ได้เลย
@@ -1985,16 +2043,16 @@
     }).catch(function () { Swal.fire('ออกรายงานไม่สำเร็จ','ลองใหม่อีกครั้ง','error'); });
   }
 
-  function repExcel(rows, summary){
-    const head = REP_COLS.map(c => '<th>' + c[0] + '</th>').join('');
-    const body = rows.map(p => '<tr>' + REP_COLS.map(c => '<td>' + esc(c[1](p)) + '</td>').join('') + '</tr>').join('');
-    const html = '<meta charset="utf-8"><table border="1"><tr>' + head + '</tr>' + body + '</table>';
-    const blob = new Blob(['﻿' + html], { type:'application/vnd.ms-excel;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = repFileName('xls');
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1500);
+  async function repExcel(rows, summary){
+    const label = (TYPE ? typeLabel(TYPE) : 'ทุกประเภท') + ' · ' + (REP_CO ? coName(REP_CO) : 'ทุกบริษัท');
+    const today = new Date().toLocaleDateString('th-TH', { day:'numeric', month:'long', year:'numeric' });
+    const numCols = { 'ปีรถ':'num', 'เหลือ (วัน)':'num', 'เบี้ยรวม':'money' };
+    const ok = await saveXlsx({ title:'รายงานประกันภัยรถ · ' + label,
+      sub:(REP_FILTER.label ? 'ตัวกรอง: ' + REP_FILTER.label + ' · ' : '') + 'ข้อมูล ณ ' + today + ' · ทั้งหมด ' + rows.length + ' ฉบับ',
+      sheet:'รายงานประกันภัยรถ', file:repFileName('xlsx'),
+      cols: REP_COLS.map(c => [c[0], numCols[c[0]] || '']),
+      rows: rows.map(p => REP_COLS.map(c => c[1](p))) });
+    if(!ok) return;
     const sum = rows.reduce((a, p) => a + (Number(p.premium_total) || 0), 0);
     swalAfter({ title:'ดาวน์โหลดแล้ว',
                 html: rows.length + ' รายการ · เบี้ยรวม ' + baht(sum) + ' บาท',
