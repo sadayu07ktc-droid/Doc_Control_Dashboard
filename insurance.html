@@ -1540,6 +1540,7 @@
       + '</div>'
 
       + '<div class="pgrid">'
+        + f('บริษัท', String(p.insured || '').trim() ? coName(p.insured) : '')
         + f('เลขกรมธรรม์', p.policy_no)
         + f('เลขตัวถัง', p.chassis)
         + f('ประเภทตัวถัง', p.body_type)
