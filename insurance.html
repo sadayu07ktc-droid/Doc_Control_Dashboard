@@ -1587,7 +1587,7 @@
     return XLSXP;
   }
 
-  /** spec = { title, sub, file, sheet, cols:[[หัว, ชนิด]], rows:[[ค่า…]] } ชนิด num|money ชิดขวา */
+  /** spec = { title, sub, file, sheet, cols:[[หัว, ชนิด]], rows:[[ค่า…]], status?:{ col, map:{ ข้อความ:[สีตัวอักษร, สีพื้น] } } } ชนิด num|money ชิดขวา */
   async function saveXlsx(spec){
     let X;
     try { X = await loadXlsx(); }
@@ -1609,8 +1609,10 @@
       aoa.push(r.map((v, j) => {
         const k = spec.cols[j][1];
         if(typeof v === 'string' && (k === 'money' || k === 'num') && /^-?[\d,]+(\.\d+)?$/.test(v)) v = Number(v.replace(/,/g, ''));
+        const st = spec.status && spec.status.col === j && spec.status.map[v];   // ระบายสีช่องสถานะ [ตัวอักษร, พื้น]
         return cell(v, Object.assign({ border:box, alignment:{ vertical:'center',
-          horizontal:(k === 'money' || k === 'num') ? 'right' : 'left' } }, bg), k);
+          horizontal:st ? 'center' : (k === 'money' || k === 'num') ? 'right' : 'left' } }, bg,
+          st ? { font:{ bold:true, color:{ rgb:st[0] } }, fill:{ fgColor:{ rgb:st[1] } } } : {}), k);
       }));
     });
     const ws = X.utils.aoa_to_sheet(aoa);
@@ -2793,7 +2795,8 @@
       cols:[['บริษัท', ''], ['ทะเบียน', ''], ['ประเภท', ''], ['ปี', ''], ['เลขกรมธรรม์', ''], ['คุ้มครอง', ''], ['เบี้ย (บาท)', 'money'],
             ['หมายเหตุยอด', ''], ['สถานะ', ''], ['เลขที่ใบวางบิล', ''], ['วันที่วางบิล', ''], ['ยอดในบิล', 'money'], ['ข้อสังเกตบิล', ''],
             ['ตรวจสอบ/ชำระ', ''], ['เลขเอกสารการจ่าย', ''], ['หมายเหตุ', '']],
-      rows:rows });
+      rows:rows,
+      status:{ col:8, map:{ [PAY_ST.paid]:['127A2E', 'D4F0DF'], [PAY_ST.billed]:['185FA5', 'E6F1FB'] } } });   // ชำระแล้ว = เขียว (ผู้ใช้ขอ) · รอตรวจ = ฟ้า
     setTimeout(unstick, 60);
   }
 </script>
