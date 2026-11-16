@@ -415,7 +415,15 @@
         if (init && typeof init.body === 'string') { try { var b = JSON.parse(init.body); for (var k in b) body[k] = b[k]; } catch (e) {} }
         delete body.t;
         try { body.access_token = (window.liff && liff.getAccessToken && liff.getAccessToken()) || ''; } catch (e) { body.access_token = ''; }
-        return orig(EDGE, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+        // เซิร์ฟเวอร์สะดุดชั่วคราว (503 = ยังไม่ได้รันคำสั่ง) → ลองใหม่เองสูงสุด 2 ครั้ง · เน็ตหลุดลองใหม่เฉพาะคำสั่งอ่าน (GET เดิม) กันบันทึกซ้ำ
+        var payload = JSON.stringify(body), isRead = !(init && init.body);
+        var wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+        var go = function (n) {
+          return orig(EDGE, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: payload })
+            .then(function (r) { return (r.status === 503 || (isRead && r.status >= 500)) && n > 0 ? wait(1500).then(function () { return go(n - 1); }) : r; },
+                  function (e) { if (isRead && n > 0) return wait(1500).then(function () { return go(n - 1); }); throw e; });
+        };
+        return go(2);
       };
     })();
   </script>
@@ -1676,7 +1684,9 @@
         || '<div class="empty">ไม่มีรายการ</div>';
       document.getElementById('sheetOut').hidden = !CUR_ROWS.length;
     }).catch(()=>{
-      document.getElementById('sheetBody').innerHTML = '<div class="empty">ดึงรายการไม่สำเร็จ</div>';
+      document.getElementById('sheetTitle').textContent = 'ดึงรายการไม่สำเร็จ';
+      document.getElementById('sheetBody').innerHTML = '<div class="empty">ดึงรายการไม่สำเร็จ (เซิร์ฟเวอร์ตอบช้า/เน็ตสะดุด)<br><br>'
+        + '<button class="pchip on" onclick="openGroup(CUR_GROUP)">ลองใหม่</button></div>';
     });
   }
 
