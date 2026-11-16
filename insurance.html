@@ -345,6 +345,14 @@
     .pchip{ border:1px solid #DDD; background:#fff; color:#555; border-radius:20px; padding:5px 11px; font-family:'Prompt'; font-size:12px; cursor:pointer; }
     .pchip.on{ background:var(--primary); border-color:var(--primary); color:#fff; }
     .pchip i{ font-style:normal; opacity:.75; margin-left:3px; }
+    .pay-cnt{ width:100%; display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; padding:8px 12px; margin-bottom:8px;
+              background:#F6F2FE; border:1px solid #E6DCFA; border-radius:12px; font-size:12.5px; color:#555; }
+    .pay-cnt b{ color:#3D0099; font-weight:600; margin-right:4px; }
+    .pay-cnt span{ background:#fff; border:1px solid #E6DCFA; border-radius:20px; padding:3px 10px; }
+    .pay-cnt span i{ font-style:normal; font-weight:600; color:#6200EA; font-size:13.5px; }
+    .pay-cnt small{ color:#999; font-size:11px; margin-left:auto; }
+    .pt .thn{ display:block; font-size:10px; font-weight:400; color:#8A7AB5; }
+    .pt .pghn{ font-weight:400; color:#8A7AB5; font-size:11.5px; margin-left:6px; }
     .pay-kpi{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:10px 16px; }
     .pp.billed{ background:#CDEFF4; color:#0E7490; }
     .pay-bill{ margin-top:8px; padding:4px 10px 8px; background:#F1FAFC; border:1px solid #CDEFF4; border-radius:12px; }
@@ -2315,8 +2323,15 @@
       tools.dataset.built = '1';
       tools.innerHTML = '<input id="payQ" type="search" placeholder="ค้นหาทะเบียน / ยี่ห้อ / เลขกรมธรรม์ / เลขที่บิล" oninput="PAY_F.q=this.value;drawPay()">'
         + '<select id="payCo" onchange="PAY_F.co=this.value;drawPay()"></select>'
-        + '<div class="pchips" id="payYears"></div><div class="pchips" id="paySt"></div>';
+        + '<div class="pchips" id="payYears"></div><div class="pchips" id="paySt"></div><div class="pay-cnt" id="payCount"></div>';
     }
+    // จำนวนรถ / ประกันภัย / พ.ร.บ. ของบริษัทที่เลือก (ในปีที่เลือก ไม่นับช่องประมาณการ)
+    const hasT = (v, t) => ys.some(y => { const c = v.cells[t + '|' + y]; return c && c.kind !== 'est'; });
+    const nT = PAY_TYPES.map(t => base.filter(v => hasT(v, t[0])).length);
+    document.getElementById('payCount').innerHTML = '<b>' + esc(PAY_F.co || 'ทุกบริษัท') + '</b>'
+      + '<span><i>' + base.length + '</i> คัน</span>'
+      + PAY_TYPES.map((t, i) => '<span>' + t[1] + ' <i>' + nT[i] + '</i> คัน</span>').join('')
+      + '<small>ปี ' + ys.join(', ') + '</small>';
     const sel = document.getElementById('payCo');
     sel.innerHTML = '<option value="">ทุกบริษัท</option>' + cos.map(c => '<option' + (c === PAY_F.co ? ' selected' : '') + '>' + esc(c) + '</option>').join('');
     document.getElementById('payYears').innerHTML = '<span>ปีที่เริ่มคุ้มครอง</span>'
@@ -2340,11 +2355,15 @@
     const ncol = 1 + ys.length * 2;
     let h = '<table class="pt"><thead><tr><th class="stk" rowspan="2">ทะเบียน</th>'
       + ys.map(y => '<th class="y" colspan="2">ปี ' + y + '</th>').join('') + '</tr><tr>'
-      + ys.map(() => PAY_TYPES.map((t, i) => '<th' + (i ? '' : ' class="y"') + '>' + t[1] + '</th>').join('')).join('') + '</tr></thead><tbody>';
+      + ys.map(y => PAY_TYPES.map((t, i) => {
+          const n = vs.filter(v => { const c = v.cells[t[0] + '|' + y]; return c && c.kind !== 'est'; }).length;
+          return '<th' + (i ? '' : ' class="y"') + '>' + t[1] + ' <span class="thn">' + n + ' คัน</span></th>';
+        }).join('')).join('') + '</tr></thead><tbody>';
+    const coN = {}; vs.forEach(v => { const k = coName(v.insured); coN[k] = (coN[k] || 0) + 1; });
     let lastCo = null;
     vs.forEach(v => {
       const co = coName(v.insured);
-      if(co !== lastCo){ lastCo = co; h += '<tr class="pgh"><td colspan="' + ncol + '">' + esc(co === '-' ? '(ไม่ระบุบริษัท)' : co) + '</td></tr>'; }
+      if(co !== lastCo){ lastCo = co; h += '<tr class="pgh"><td colspan="' + ncol + '">' + esc(co === '-' ? '(ไม่ระบุบริษัท)' : co) + ' <small class="pghn">' + coN[co] + ' คัน</small></td></tr>'; }
       h += '<tr><td class="stk"><b>' + esc(v.plate || '(ไม่มีทะเบียน)') + '</b><small>' + esc([v.brand, v.model].filter(Boolean).join(' ')) + '</small></td>';
       ys.forEach(y => PAY_TYPES.forEach((t, i) => {
         const c = v.cells[t[0] + '|' + y], yc = i ? '' : ' y';
