@@ -498,7 +498,7 @@
   function coName(v){
     return String(v || '').replace(/^บริษัท\s*/, '').replace(/\s*จำกัด\s*$/, '').trim() || '-';
   }
-  function baht(n){ return Number(n||0).toLocaleString('th-TH',{maximumFractionDigits:0}); }
+  function baht(n){ return Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:2, maximumFractionDigits:2}); }
   function api(action, params){
     const q = new URLSearchParams(Object.assign({action:action}, params||{})).toString();
     return fetch(GAS_API_URL + '?' + q).then(r => r.json());
@@ -1438,8 +1438,8 @@
     const n = spec.cols.length;
     const line = { style:'thin', color:{ rgb:'D9D2EC' } };
     const box = { top:line, bottom:line, left:line, right:line };
-    const cell = (v, s) => (typeof v === 'number' && isFinite(v))
-      ? { v:v, t:'n', z:(Number.isInteger(v) ? '#,##0' : '#,##0.00'), s:s }
+    const cell = (v, s, k) => (typeof v === 'number' && isFinite(v))
+      ? { v:v, t:'n', z:((k !== 'money' && Number.isInteger(v)) ? '#,##0' : '#,##0.00'), s:s }
       : { v:(v == null ? '' : String(v)), t:'s', s:s };
     const aoa = [
       [cell(spec.title, { font:{ bold:true, sz:15, color:{ rgb:'3D0099' } } })],
@@ -1453,7 +1453,7 @@
         const k = spec.cols[j][1];
         if(typeof v === 'string' && (k === 'money' || k === 'num') && /^-?[\d,]+(\.\d+)?$/.test(v)) v = Number(v.replace(/,/g, ''));
         return cell(v, Object.assign({ border:box, alignment:{ vertical:'center',
-          horizontal:(k === 'money' || k === 'num') ? 'right' : 'left' } }, bg));
+          horizontal:(k === 'money' || k === 'num') ? 'right' : 'left' } }, bg), k);
       }));
     });
     const ws = X.utils.aoa_to_sheet(aoa);
