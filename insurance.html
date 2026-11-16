@@ -2450,6 +2450,12 @@
           + '<button class="psb-go" onclick="payCheckFlow()">✓ ตรวจสอบการชำระแล้ว</button>' : '');
   }
 
+  /** ตัวอย่างเลขเอกสารการจ่าย LA + ปี พ.ศ. 2 หลัก + เดือน + 0001 ตามวันที่ชำระ เช่น 2026-11 → LA69110001 */
+  function payDocHint(iso){
+    const d = String(iso || payToday());
+    return 'LA' + String(+d.slice(0, 4) + 543).slice(-2) + d.slice(5, 7) + '0001';
+  }
+
   /** keys ว่าง = ใช้รายการที่ติ๊กไว้ */
   async function payCheckFlow(keys){
     const list = (keys || Array.from(PAY_SEL)).map(k => PAY_MAP[k]).filter(c => c && c.status === 'billed')
@@ -2463,8 +2469,9 @@
             + '<b>฿' + baht(c.bill_amount || c.amount) + '</b></div>').join('') + '</div>'
         + '<div class="pck-sum"><span>' + list.length + ' บิล</span><b>฿' + baht(sum) + '</b></div>'
         + (warn ? '<div class="pay-warn">⚠ มี ' + warn + ' บิลที่ยอด/ข้อมูลไม่ตรงกับในระบบ ตรวจให้แน่ใจก่อนยืนยัน</div>' : '')
-        + '<label>เลขเอกสารการจ่าย <b style="color:#E53935">*</b></label><input id="pckDoc" maxlength="80" placeholder="เช่น PV6911-0123" autocomplete="off">'
-        + '<label>วันที่ชำระ</label><input type="date" id="pckDate" value="' + today + '" max="' + today + '">'
+        + '<label>เลขเอกสารการจ่าย <b style="color:#E53935">*</b></label><input id="pckDoc" maxlength="80" placeholder="เช่น ' + payDocHint(today) + '" autocomplete="off">'
+        + '<label>วันที่ชำระ</label><input type="date" id="pckDate" value="' + today + '" max="' + today + '"'
+        +   ' oninput="document.getElementById(\'pckDoc\').placeholder=\'เช่น \'+payDocHint(this.value)">'
         + '<label>หมายเหตุ (ไม่บังคับ)</label><textarea id="pckNote"></textarea></div>',
       showCancelButton:true, confirmButtonText:'ยืนยัน', cancelButtonText:'ยกเลิก', confirmButtonColor:'#00A040',
       didOpen:() => document.getElementById('pckDoc').focus(),
