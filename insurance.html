@@ -358,6 +358,14 @@
     .pay-bill{ margin-top:8px; padding:4px 10px 8px; background:#F1FAFC; border:1px solid #CDEFF4; border-radius:12px; }
     .pay-warn{ margin-top:8px; padding:8px 10px; background:#FFF4E5; color:#B45309; border-radius:10px; font-size:12.5px; }
     .pay-okline{ margin-top:8px; color:#1B7A3D; font-size:12.5px; font-weight:500; }
+    .pay-rep-sub{ font-size:12.5px; color:#6b6585; line-height:1.6; margin-bottom:4px; }
+    .pay-rep-opt{ display:flex; align-items:center; gap:12px; width:100%; text-align:left; cursor:pointer; font:inherit; color:#1f1a33;
+      background:#fff; border:1px solid #E0D7F0; border-radius:12px; padding:11px 12px; margin-top:8px; transition:border-color .15s, background .15s, transform .15s; }
+    .pay-rep-opt:hover:not(:disabled){ border-color:#6200EA; background:#faf7ff; transform:translateY(-1px); }
+    .pay-rep-opt:disabled{ opacity:.55; cursor:default; }
+    .pay-rep-opt .ic{ flex:none; width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:11px; }
+    .pay-rep-opt b{ display:block; font-size:14px; }
+    .pay-rep-opt small{ font-size:12px; color:#6b6585; }
     .pay-hist{ margin-top:12px; border-top:1px dashed #E0D7F0; padding-top:8px; text-align:left; }
     .pay-hist .ph-t{ font-size:12px; font-weight:600; color:#6200EA; margin-bottom:4px; }
     .pay-hist .ph-l{ font-size:12px; color:#999; }
@@ -563,9 +571,9 @@
           <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           <span class="hide-sm">ชำระย้อนหลัง</span>
         </button>
-        <button onclick="payExcel()" title="ดาวน์โหลด Excel">
+        <button onclick="payReport()" title="ออกรายงาน Excel / PDF / JPEG (ตามตัวกรองบนจอ)">
           <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Excel
+          รายงาน
         </button>
         <button onclick="closePay()" aria-label="ปิด">
           <svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -2782,23 +2790,35 @@
     setTimeout(unstick, 60);
   }
 
-  async function payExcel(){
-    if(!PAY) return;
-    const ys = PAY_F.years.slice().sort(), rows = [];
+  /** รายการตามตัวกรองบนจอ (บริษัท / ปี / สถานะ / คำค้น) — ใช้ร่วมกันทั้ง Excel / PDF / JPEG ไฟล์จะได้ตรงกับจอ */
+  function payPicked(){
+    const ys = PAY_F.years.slice().sort(), out = [];
     payVehicles().forEach(v => ys.forEach(y => PAY_TYPES.forEach(t => {
       const c = v.cells[t[0] + '|' + y];
-      if(!c || (PAY_F.st && c.status !== PAY_F.st)) return;
+      if(c && !(PAY_F.st && c.status !== PAY_F.st)) out.push([c, t]);
+    })));
+    return out;
+  }
+  function payFilterLabel(){
+    return 'ปีที่เริ่มคุ้มครอง ' + PAY_F.years.slice().sort().join(', ') + (PAY_F.co ? ' · ' + PAY_F.co : '')
+      + (PAY_F.st ? ' · ' + PAY_ST[PAY_F.st] : '') + (PAY_F.q.trim() ? ' · ค้นหา "' + PAY_F.q.trim().replace(/\s+/g, ' ').slice(0, 40) + '"' : '');
+  }
+
+  async function payExcel(){
+    if(!PAY) return;
+    const rows = [];
+    payPicked().forEach(([c, t]) => {
       rows.push([coName(c.insured), c.plate || '', t[1], String(c.year_be), c.policy_no || '',
         payShort(c.start_date) + ' – ' + payShort(c.end_date), Number(c.amount) || 0, c.kind === 'est' ? 'ประมาณการ' : '',
         PAY_ST[c.status], c.bill_no || '', payDay(c.bill_date), c.bill_amount != null && c.bill_amount !== '' ? Number(c.bill_amount) : '',
         c.bill_issues || '', c.paid_at ? payDay(c.paid_at) + (c.paid_by ? ' · ' + c.paid_by : '') : '', c.paid_doc || '',
         c.paid_amount != null && c.paid_amount !== '' ? Number(c.paid_amount) : '', c.note || '']);
-    })));
+    });
     if(!rows.length){ toast('ไม่มีรายการให้ออกไฟล์', true); return; }
     const d = new Date(), stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
     const total = rows.reduce((s, r) => s + (r[7] ? 0 : r[6]), 0);
     await saveXlsx({ title:'ทะเบียนการชำระเบี้ยประกัน', sheet:'การชำระเบี้ย', file:'การชำระเบี้ยประกัน_' + stamp + '.xlsx',
-      sub:'ปีที่เริ่มคุ้มครอง ' + ys.join(', ') + (PAY_F.co ? ' · ' + PAY_F.co : '') + (PAY_F.st ? ' · ' + PAY_ST[PAY_F.st] : '')
+      sub:payFilterLabel()
         + ' · ' + rows.length + ' รายการ · เบี้ยรวม ' + baht(total) + ' บาท (ไม่รวมประมาณการ)',
       cols:[['บริษัท', ''], ['ทะเบียน', ''], ['ประเภท', ''], ['ปี', ''], ['เลขกรมธรรม์', ''], ['คุ้มครอง', ''], ['เบี้ย (บาท)', 'money'],
             ['หมายเหตุยอด', ''], ['สถานะ', ''], ['เลขที่ใบวางบิล', ''], ['วันที่วางบิล', ''], ['ยอดในบิล', 'money'], ['ข้อสังเกตบิล', ''],
@@ -2806,6 +2826,163 @@
       rows:rows,
       status:{ col:8, map:{ [PAY_ST.paid]:['127A2E', 'D4F0DF'], [PAY_ST.billed]:['185FA5', 'E6F1FB'] } } });   // ชำระแล้ว = เขียว (ผู้ใช้ขอ) · รอตรวจ = ฟ้า
     setTimeout(unstick, 60);
+  }
+
+  /* ---------- ปุ่มรายงาน: เลือก Excel / PDF / JPEG (skill webapp-report-export · 2026-11-16) ----------
+     Excel = ไฟล์เต็ม 17 คอลัมน์เดิม (payExcel) · PDF / JPEG = หน้า A4 แนวนอน คอลัมน์ที่จำเป็น แถวสูงคงที่ แบ่งหน้าแน่นอน
+     ข้อมูลทุกแบบ = รายการตามตัวกรองบนจอ (payPicked) */
+  const PAY_REP_CLR = { paid:['#127a2e', '#d4f0df'], billed:['#185fa5', '#e6f1fb'], none:['#5f5e5a', '#efefef'] };
+  let JSPDFP = null;
+  function loadJsPdf(){
+    if(window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf);
+    if(JSPDFP) return JSPDFP;
+    JSPDFP = new Promise(function (res, rej) {
+      const sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      sc.onload = () => res(window.jspdf);
+      sc.onerror = () => { JSPDFP = null; sc.remove(); rej(new Error('โหลดตัวสร้าง PDF ไม่ได้ ลองใหม่อีกครั้ง')); };
+      document.head.appendChild(sc);
+    });
+    return JSPDFP;
+  }
+  function payRepSave(blob, name){
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    toast('ออกไฟล์แล้ว: ' + name);
+  }
+
+  function payReport(){
+    if(!PAY) return;
+    const n = payPicked().length;
+    const opt = (kind, clr, bg, title, desc, ic) =>
+      '<button type="button" class="pay-rep-opt" onclick="payReportGo(\'' + kind + '\',this)"' + (n ? '' : ' disabled') + '>'
+      + '<span class="ic" style="background:' + bg + ';color:' + clr + '">' + ic + '</span>'
+      + '<span><b>' + title + '</b><small>' + desc + '</small></span></button>';
+    Swal.fire({ title:'ออกรายงาน', width:430, showConfirmButton:false, showCloseButton:true,
+      html:'<div style="text-align:left">'
+        + '<div class="pay-rep-sub">ทะเบียนการชำระเบี้ยประกัน · ' + esc(payFilterLabel()) + ' · <b>' + n + ' รายการ</b> (ตรงกับตัวกรองบนจอ)</div>'
+        + (n ? '' : '<div class="pay-rep-sub" style="color:#a32d2d">ไม่มีข้อมูลในตัวกรองที่เลือก</div>')
+        + opt('xlsx', '#1d6f42', '#e3f1e8', 'Excel', 'ตารางเต็มทุกคอลัมน์ กรอง/เรียงต่อใน Excel ได้', 'XLS')
+        + opt('pdf', '#b91c1c', '#fdeaea', 'PDF', 'A4 แนวนอน พร้อมพิมพ์', 'PDF')
+        + opt('jpg', '#0f766e', '#e6f4f1', 'JPEG', 'ภาพเดียว ส่งต่อในไลน์ได้ทันที', 'JPG') + '</div>',
+      didClose:() => setTimeout(unstick, 60) });
+  }
+
+  async function payReportGo(kind, b){
+    if(b.disabled) return;
+    const box = b.closest('.swal2-html-container'), all = box ? box.querySelectorAll('.pay-rep-opt') : [b];
+    const old = b.innerHTML;
+    all.forEach(x => x.disabled = true);
+    b.querySelector('small').textContent = 'กำลังสร้างไฟล์…';
+    try {
+      if(kind === 'xlsx') await payExcel(); else await payReportImage(kind);
+      Swal.close();
+    } catch(e){
+      toast('สร้างไฟล์ไม่สำเร็จ: ' + (e.message || e), true);
+      b.innerHTML = old; all.forEach(x => x.disabled = false);
+    }
+  }
+
+  function payReportSpec(){
+    const list = payPicked(), cnt = { none:[0, 0], billed:[0, 0], paid:[0, 0] };
+    let sum = 0, est = 0;
+    const rows = list.map(([c, t]) => {
+      const amt = Number(c.amount) || 0, isEst = c.kind === 'est';
+      if(isEst) est++; else { sum += amt; cnt[c.status][1] += amt; }
+      cnt[c.status][0]++;
+      return [coName(c.insured), c.plate || '', t[1], String(c.year_be), c.policy_no || '',
+        payShort(c.start_date) + ' – ' + payShort(c.end_date), { v:amt, est:isEst }, c.status,
+        c.bill_no || '', c.paid_at ? payDay(c.paid_at) : '', c.paid_doc || ''];
+    });
+    return { rows, cnt, sum, est,
+      sub:payFilterLabel() + ' · ' + rows.length + ' รายการ',
+      cols:[ { h:'บริษัท', w:0 }, { h:'ทะเบียน', w:84 }, { h:'ประเภท', w:62, a:'center' }, { h:'ปี', w:42, a:'center' },
+             { h:'เลขกรมธรรม์', w:112 }, { h:'คุ้มครอง', w:128 }, { h:'เบี้ย (บาท)', w:88, a:'right' }, { h:'สถานะ', w:104, a:'center' },
+             { h:'เลขที่ใบวางบิล', w:104 }, { h:'วันที่ชำระ', w:76, a:'center' }, { h:'เลขเอกสารจ่าย', w:96 } ] };
+  }
+
+  function payReportPages(S){
+    const W = 1123, H = 794, e = esc, d = new Date();
+    const made = beDate(payToday()) + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    const cell = 'padding:0 6px;height:26px;line-height:26px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid #eee8f7';
+    const th = 'padding:0 6px;height:28px;line-height:28px;font-size:10.5px;font-weight:600;color:#fff;background:#4a1aa8;white-space:nowrap;overflow:hidden';
+    // ลายพื้นหัว = โล่ประกัน + เส้นโค้งกิโยเช่ (ธีมประกัน/การเงิน บนสีม่วงของ Doc Control)
+    const pattern = '<svg width="260" height="120" viewBox="0 0 260 120" style="position:absolute;right:-10px;top:-6px;opacity:.18" fill="none" stroke="#fff" stroke-width="1.2">'
+      + [0, 12, 24, 36, 48].map(k => '<path d="M0 ' + (30 + k) + ' C 50 ' + (0 + k) + ', 90 ' + (70 + k) + ', 140 ' + (35 + k) + ' S 230 ' + (5 + k) + ', 260 ' + (40 + k) + '"/>').join('')
+      + '<path d="M205 18 l26 10 v20 c0 16-11 27-26 32 c-15-5-26-16-26-32 v-20 z" stroke-width="2.4"/><path d="M194 49 l8 8 l16 -17" stroke-width="2.6"/></svg>';
+    const head = '<div style="background:linear-gradient(120deg,#2a0070,#4a1aa8 55%,#6200ea);color:#fff;border-radius:14px;padding:14px 20px;position:relative;overflow:hidden">' + pattern
+      + '<div style="display:flex;align-items:center;gap:12px;position:relative">'
+      + '<div style="width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,#ffd166,#f0a500);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 14px -6px rgba(240,165,0,.9)">'
+      + '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d0099" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.2-8 11-4.6-1.8-8-6-8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></div>'
+      + '<div><div style="font-size:10.5px;font-weight:600;letter-spacing:2px;color:#d9c8ff">INSURANCE PAYMENT REPORT · DOC CONTROL</div>'
+      + '<div style="font-size:22px;font-weight:700;margin-top:1px">ทะเบียนการชำระเบี้ยประกัน</div></div></div>'
+      + '<div style="display:flex;gap:18px;margin-top:8px;font-size:11.5px;color:#d9c8ff;position:relative"><span>' + e(S.sub) + '</span><span>สร้างเมื่อ <b style="color:#fff">' + made + '</b></span></div></div>';
+    const kpi = (label, n, amt, clr) => '<div style="flex:1;background:#faf7ff;border:1px solid #e6dcfa;border-radius:10px;padding:7px 12px;border-top:3px solid ' + clr + '">'
+      + '<div style="font-size:10.5px;color:#6b6585">' + label + '</div>'
+      + '<div style="font-size:18px;font-weight:700;color:' + clr + '">' + n + ' <span style="font-size:11px;font-weight:500">รายการ</span></div>'
+      + '<div style="font-size:10.5px;color:#4b4566">' + baht(amt) + ' บาท</div></div>';
+    const kpis = '<div style="display:flex;gap:10px;margin-top:10px">'
+      + kpi('รายการทั้งหมด', S.rows.length, S.sum, '#3d0099') + kpi(PAY_ST.paid, S.cnt.paid[0], S.cnt.paid[1], PAY_REP_CLR.paid[0])
+      + kpi(PAY_ST.billed, S.cnt.billed[0], S.cnt.billed[1], PAY_REP_CLR.billed[0]) + kpi(PAY_ST.none, S.cnt.none[0], S.cnt.none[1], PAY_REP_CLR.none[0]) + '</div>';
+    const colg = '<colgroup>' + S.cols.map(k => '<col' + (k.w ? ' style="width:' + k.w + 'px"' : '') + '>').join('') + '</colgroup>';
+    const thead = '<tr>' + S.cols.map((k, i) => '<th style="' + th + ';text-align:' + (k.a || 'left') + (i === 0 ? ';border-radius:8px 0 0 0' : '')
+      + (i === S.cols.length - 1 ? ';border-radius:0 8px 0 0' : '') + '">' + e(k.h) + '</th>').join('') + '</tr>';
+    const tr = (r, i) => '<tr style="background:' + (i % 2 ? '#faf8fe' : '#fff') + '">' + r.map((v, ci) => {
+      let h;
+      if(ci === 6) h = v.est ? '<span style="color:#8a5a0b">≈ ' + baht(v.v) + '</span>' : baht(v.v);
+      else if(ci === 7){ const cc = PAY_REP_CLR[v]; h = '<span style="display:inline-block;line-height:16px;vertical-align:middle;padding:1px 8px;border-radius:9px;font-size:10px;font-weight:600;color:' + cc[0] + ';background:' + cc[1] + '">' + e(PAY_ST[v]) + '</span>'; }
+      else h = e(v);
+      return '<td style="' + cell + ';text-align:' + (S.cols[ci].a || 'left') + (ci === 1 ? ';font-weight:600' : '') + '">' + h + '</td>';
+    }).join('') + '</tr>';
+    const tot = '<tr style="background:#efe7fd;font-weight:700;color:#3d0099"><td colspan="6" style="' + cell + ';border:0">รวม ' + S.rows.length + ' รายการ'
+      + (S.est ? ' <span style="font-weight:400;color:#8a5a0b">(ไม่รวมประมาณการ ' + S.est + ' รายการ)</span>' : '') + '</td>'
+      + '<td style="' + cell + ';border:0;text-align:right">' + baht(S.sum) + '</td><td colspan="4" style="' + cell + ';border:0"></td></tr>';
+    // แถวสูง 26px คงที่ → นับแถวต่อหน้าได้แน่นอน (หน้าแรกมีหัว + KPI) · จำนวนนี้เผื่อที่ให้แถวรวมท้ายตารางแล้ว
+    const FIRST = 17, NEXT = 23, pages = [S.rows.slice(0, FIRST)];
+    for(let i = FIRST; i < S.rows.length; i += NEXT) pages.push(S.rows.slice(i, i + NEXT));
+    const total = pages.length;
+    return pages.map((pr, pi) => {
+      const small = '<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #4a1aa8;padding-bottom:6px;margin-bottom:10px">'
+        + '<b style="font-size:14px;color:#3d0099">ทะเบียนการชำระเบี้ยประกัน</b><span style="font-size:11px;color:#6b6585">' + e(S.sub) + '</span></div>';
+      return '<div class="pay-rep-page" style="width:' + W + 'px;height:' + H + 'px;box-sizing:border-box;padding:28px 34px;background:#fff;position:relative;font-family:\'Prompt\',sans-serif;color:#1f1a33;font-size:11.5px">'
+        + (pi === 0 ? head + kpis + '<div style="height:12px"></div>' : small)
+        + '<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px">' + colg + thead + pr.map((r, i) => tr(r, i)).join('') + (pi === total - 1 ? tot : '') + '</table>'
+        + '<div style="position:absolute;left:34px;right:34px;bottom:16px;display:flex;justify-content:space-between;font-size:10px;color:#9a93b3;border-top:1px solid #eee8f7;padding-top:6px">'
+        + '<span>Doc Control · ประกันภัยรถ · ทะเบียนการชำระเบี้ยประกัน</span><span>หน้า ' + (pi + 1) + ' / ' + total + '</span></div></div>';
+    });
+  }
+
+  async function payReportImage(kind){
+    const S = payReportSpec();
+    if(!S.rows.length) throw new Error('ไม่มีรายการให้ออกไฟล์');
+    const h2c = await loadH2C(); if(kind === 'pdf') await loadJsPdf();
+    const host = document.createElement('div');
+    host.style.cssText = 'position:fixed;left:-12000px;top:0;width:1123px;z-index:-1';
+    host.innerHTML = payReportPages(S).join('');
+    document.body.appendChild(host);
+    try {
+      if(document.fonts && document.fonts.ready) await document.fonts.ready;
+      const pages = [].slice.call(host.querySelectorAll('.pay-rep-page')), canv = [];
+      // JPEG ต่อทุกหน้าเป็นภาพเดียว — ภาพสูงเกิน ~32,000px เบราว์เซอร์วาดไม่ได้ → รายการเยอะลดความละเอียดลง
+      const sc = kind === 'jpg' ? Math.max(0.6, Math.min(2, 30000 / (pages.length * 814))) : (pages.length > 6 ? 1.6 : 2);
+      for(const p of pages) canv.push(await h2c(p, { scale:sc, backgroundColor:'#ffffff', useCORS:true, logging:false }));
+      const d = new Date(), stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+      const name = 'การชำระเบี้ยประกัน_' + stamp + '.' + kind;
+      if(kind === 'pdf'){
+        const pdf = new window.jspdf.jsPDF({ unit:'pt', format:'a4', orientation:'landscape', compress:true });
+        canv.forEach((cv, i) => { if(i) pdf.addPage('a4', 'landscape'); pdf.addImage(cv.toDataURL('image/jpeg', 0.86), 'JPEG', 0, 0, 841.89, 595.28); });
+        // octet-stream: เบราว์เซอร์ในแอป LINE จะไม่พยายาม "เปิด" PDF เอง (เคยทำให้ปุ่ม PDF เหมือนกดไม่ติด)
+        payRepSave(new Blob([pdf.output('arraybuffer')], { type:'application/octet-stream' }), name);
+      } else {
+        const gap = 20, w = canv[0].width, h = canv.reduce((s, c) => s + c.height, 0) + gap * (canv.length - 1);
+        const out = document.createElement('canvas'); out.width = w; out.height = h;
+        const g = out.getContext('2d'); g.fillStyle = '#e6dcfa'; g.fillRect(0, 0, w, h);
+        let y = 0; canv.forEach(c => { g.drawImage(c, 0, y); y += c.height + gap; });
+        const blob = await new Promise(ok => out.toBlob(ok, 'image/jpeg', 0.92));
+        payRepSave(blob, name);
+      }
+    } finally { host.remove(); }
   }
 
   /* ---------- บันทึกชำระย้อนหลังด้วย Excel (Dev เท่านั้น · 2026-11-16) ----------
