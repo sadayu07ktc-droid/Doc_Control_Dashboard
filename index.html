@@ -636,6 +636,10 @@
           + '<div style="flex:1;min-width:0"><b style="font-size:14px">' + (docEsc(u.name) || '<span style="color:#999">(ยังไม่กรอกชื่อ)</span>') + '</b>'
           + '<div style="font-size:12px;color:#777">' + (docEsc(u.dept) || '-') + ' · <span style="font-family:monospace">' + docEsc(u.masked) + '</span></div></div>'
           + '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;color:' + st[1] + ';background:' + st[2] + '">' + st[0] + '</span>'
+          // ฝ่ายบัญชี = หน้าประกันภัยดูอย่างเดียว (ดูทะเบียนการชำระเบี้ย แก้อะไรไม่ได้)
+          + (u.status === 'Active'
+              ? '<button data-role="' + docEsc(u.uid) + '" data-ir="' + (u.ins_role === 'acct' ? '' : 'acct') + '" title="' + (u.ins_role === 'acct' ? 'กดเพื่อเปลี่ยนกลับเป็นแอดมิน (แก้ไขได้)' : 'กดเพื่อตั้งเป็นฝ่ายบัญชี: หน้าประกันภัยดูอย่างเดียว') + '" style="border:1px solid ' + (u.ins_role === 'acct' ? '#0E7490;color:#fff;background:#0E7490' : '#bbb;color:#555;background:#fff') + ';border-radius:8px;padding:5px 8px;font-size:12px;cursor:pointer;white-space:nowrap">' + (u.ins_role === 'acct' ? 'บัญชี (ดูอย่างเดียว)' : 'ตั้งเป็นบัญชี') + '</button>'
+              : '')
           + (u.has_pin ? '<button data-pin="' + docEsc(u.uid) + '" title="ลืมรหัสหน้าประกันภัย: ล้างแล้วเจ้าตัวตั้งใหม่ตอนเข้าครั้งถัดไป" style="border:1px solid #bbb;color:#555;background:#fff;border-radius:8px;padding:5px 8px;font-size:12px;cursor:pointer;white-space:nowrap">ล้างรหัส</button>' : '')
           + btn + '</div>';
       }).join('') + '</div>';
@@ -659,6 +663,16 @@
                   if (res.status !== 'success') { Swal.showValidationMessage(res.message || 'ล้างรหัสไม่สำเร็จ'); b.disabled = false; b.textContent = 'ล้างรหัส'; return; }
                   loadUserAdmin();
                 }).catch(function () { Swal.showValidationMessage('เชื่อมต่อไม่ได้ ลองใหม่'); b.disabled = false; b.textContent = 'ล้างรหัส'; });
+            };
+          });
+          box.querySelectorAll('button[data-role]').forEach(function (b) {
+            b.onclick = function () {
+              b.disabled = true; b.textContent = '…';
+              fetch(GAS_API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'dc_user_set', uid: b.dataset.role, ins_role: b.dataset.ir }) })
+                .then(r => r.json()).then(function (res) {
+                  if (res.status !== 'success') { Swal.showValidationMessage(res.message || 'บันทึกไม่สำเร็จ'); b.disabled = false; return; }
+                  loadUserAdmin();
+                }).catch(function () { Swal.showValidationMessage('เชื่อมต่อไม่ได้ ลองใหม่'); b.disabled = false; });
             };
           });
           box.querySelectorAll('button[data-uid]').forEach(function (b) {

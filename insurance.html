@@ -318,6 +318,73 @@
            font-family:'Prompt'; font-size:11.5px; font-weight:500; padding:7px 11px; cursor:pointer; }
     .pbtn:hover{ background:#EADCF7; }
     .pbtn.done{ background:#E8F5E9; color:#2E7D32; cursor:default; }
+
+    /* ===== ทะเบียนการชำระเบี้ย (ปุ่มลอย FAB → หน้าเต็มจอ) ===== */
+    .payfab{ position:fixed; right:18px; bottom:calc(18px + env(safe-area-inset-bottom)); z-index:70; border:none; border-radius:999px;
+             background:var(--bg-gradient); color:#fff; font-family:'Prompt'; font-size:14px; font-weight:500; padding:13px 20px 13px 16px;
+             display:flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 10px 26px rgba(98,0,234,.45), 0 0 0 3px rgba(255,255,255,.7);
+             transition:transform .18s, box-shadow .18s; -webkit-tap-highlight-color:transparent; }
+    .payfab[hidden]{ display:none; }
+    .payfab:hover{ transform:translateY(-2px); box-shadow:0 14px 30px rgba(98,0,234,.55), 0 0 0 3px rgba(255,255,255,.8); }
+    .payfab:active{ transform:scale(.95); }
+    .wrap{ padding-bottom:90px; }
+    .pay-bg{ position:fixed; inset:0; z-index:2100; background:rgba(20,10,40,.55); backdrop-filter:blur(3px); display:none; padding:14px; }
+    .pay-bg.open{ display:flex; animation:swFade .2s ease-out; }
+    .pay{ background:#fff; border-radius:20px; width:100%; max-width:1150px; margin:0 auto; display:flex; flex-direction:column; overflow:hidden;
+          box-shadow:0 22px 50px rgba(0,0,0,.3); animation:swUp .28s cubic-bezier(.22,1,.36,1); }
+    .pay-hd{ display:flex; align-items:center; gap:10px; padding:14px 16px; background:var(--bg-gradient); color:#fff; }
+    .pay-hd b{ flex:1; font-size:16px; font-weight:600; } .pay-hd small{ display:block; font-size:11.5px; font-weight:300; opacity:.9; }
+    .pay-hd button{ border:none; background:rgba(255,255,255,.2); color:#fff; border-radius:11px; padding:8px 11px; font-family:'Prompt'; font-size:12.5px;
+                    cursor:pointer; display:flex; align-items:center; gap:5px; }
+    .pay-hd button:hover{ background:rgba(255,255,255,.32); }
+    .pay-tools{ padding:12px 16px 4px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid #EEE; }
+    .pay-tools input, .pay-tools select{ font-family:'Prompt'; font-size:13px; border:1px solid #DDD; border-radius:10px; padding:7px 10px; background:#fff; }
+    .pay-tools input{ flex:1; min-width:150px; }
+    .pchips{ display:flex; flex-wrap:wrap; gap:6px; width:100%; padding-bottom:8px; }
+    .pchips span{ font-size:11px; color:#999; align-self:center; margin-right:2px; }
+    .pchip{ border:1px solid #DDD; background:#fff; color:#555; border-radius:20px; padding:5px 11px; font-family:'Prompt'; font-size:12px; cursor:pointer; }
+    .pchip.on{ background:var(--primary); border-color:var(--primary); color:#fff; }
+    .pchip i{ font-style:normal; opacity:.75; margin-left:3px; }
+    .pay-kpi{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:10px 16px; }
+    .pay-kpi div{ border-radius:12px; padding:9px 12px; }
+    .pay-kpi b{ display:block; font-size:16px; } .pay-kpi small{ font-size:11.5px; }
+    .k-none{ background:#F4F4F6; color:#555; } .k-req{ background:#FFF3E0; color:#B45309; } .k-paid{ background:#E8F5E9; color:#1B7A3D; }
+    .pay-bd{ flex:1; overflow:auto; padding:0 0 14px; }
+    table.pt{ border-collapse:separate; border-spacing:0; width:100%; font-size:12px; }
+    .pt th{ position:sticky; top:0; z-index:2; background:#F3EEFC; color:#3D0099; font-weight:600; padding:7px 6px; border-bottom:1px solid #E2D8F5; white-space:nowrap; }
+    .pt thead tr:nth-child(2) th{ top:31px; font-weight:500; font-size:11.5px; }
+    .pt th.y{ box-shadow:inset 2px 0 0 #D9CCF2; } .pt td.y{ box-shadow:inset 2px 0 0 #EEE7FA; }
+    .pt td{ padding:6px; border-bottom:1px solid #F0F0F0; vertical-align:middle; }
+    .pt .stk{ position:sticky; left:0; z-index:1; background:#fff; min-width:118px; box-shadow:2px 0 0 #F0EBF8; }
+    .pt th.stk{ z-index:3; background:#F3EEFC; }
+    .pt .stk b{ display:block; font-size:13px; } .pt .stk small{ color:#999; font-size:10.5px; }
+    .pt tr.pgh td{ background:#FAF7FF; color:#6200EA; font-weight:600; font-size:12.5px; padding:8px 10px; position:sticky; left:0; }
+    .pc{ min-width:112px; text-align:right; cursor:pointer; transition:background .15s; }
+    .pc:hover{ background:#F8F5FF; }
+    .pc small{ display:block; color:#999; font-size:10.5px; white-space:nowrap; }
+    .pc b{ display:block; font-size:13px; font-weight:500; color:#222; }
+    .pc.est b{ color:#999; font-style:italic; font-weight:400; }
+    .pc.pnone{ color:#ccc; text-align:center; cursor:default; } .pc.pnone:hover{ background:none; }
+    .pc.dim{ opacity:.28; }
+    .pp{ display:inline-flex; align-items:center; gap:3px; font-size:10.5px; font-weight:500; padding:1px 8px; border-radius:20px; margin-top:2px; white-space:nowrap; }
+    .pp.none{ background:#F1F1F3; color:#777; } .pp.requested{ background:#FFE9C7; color:#A34E00; } .pp.paid{ background:#D9F5E1; color:#1B7A3D; }
+    .pay-empty{ padding:40px 16px; text-align:center; color:#999; }
+    .pay-note{ padding:8px 16px 0; font-size:11px; color:#999; }
+    .ro .pacts button, .ro #btnSettings{ display:none !important; }   /* ฝ่ายบัญชี: ดูอย่างเดียว */
+    html.payopen, html.payopen body{ overflow:hidden; }
+    .pay-sw{ text-align:left; font-size:13.5px; }
+    .pay-sw .r{ display:flex; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px dashed #EEE; }
+    .pay-sw .r span{ color:#888; } .pay-sw .r b{ font-weight:500; text-align:right; }
+    .pay-sw label{ display:block; font-size:12.5px; color:#666; margin:12px 0 4px; }
+    .pay-sw input, .pay-sw textarea{ width:100%; box-sizing:border-box; font-family:'Prompt'; font-size:13.5px; border:1px solid #DDD; border-radius:10px; padding:8px 10px; }
+    .pay-sw textarea{ min-height:58px; resize:vertical; }
+    .pay-sw a{ color:var(--primary); font-weight:500; }
+    @media (max-width:640px){ .pay-bg{ padding:0; } .pay{ border-radius:0; } .payfab span{ display:none; } .payfab{ padding:14px; }
+      .pay-hd{ padding:11px 12px; } .pay-hd b{ font-size:14.5px; } .pay-hd small{ font-size:10.5px; }
+      .pay-tools{ padding:9px 12px 0; gap:6px; } .pay-tools input{ flex-basis:100%; } .pay-tools select{ flex:1; }
+      .pchips{ gap:5px; padding-bottom:6px; } .pchip{ padding:4px 9px; font-size:11.5px; }
+      .pay-kpi{ gap:6px; padding:8px 12px; } .pay-kpi div{ padding:6px 8px; } .pay-kpi b{ font-size:13px; } .pay-kpi small{ font-size:10px; }
+      .pay-kpi .kx{ display:none; } }
   </style>
   <script>
     /* Doc Control → Supabase (2026-10-26): ทุกคำสั่งที่เคยยิง Google Apps Script ส่งไป edge doc-api แทน
@@ -429,6 +496,28 @@
 
   <div class="toast" id="toast"></div>
 
+  <button class="payfab" id="payFab" onclick="openPay()" title="ทะเบียนการชำระเบี้ยประกัน" aria-label="ทะเบียนการชำระเบี้ยประกัน" hidden>
+    <svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>
+    <span>การชำระเงิน</span>
+  </button>
+  <div class="pay-bg" id="payBg" onclick="if(event.target===this) closePay()">
+    <div class="pay" role="dialog" aria-label="ทะเบียนการชำระเบี้ยประกัน">
+      <div class="pay-hd">
+        <b>ทะเบียนการชำระเบี้ยประกัน<small id="paySub">ประกันภัย | พ.ร.บ. แยกตามปีที่เริ่มคุ้มครอง</small></b>
+        <button onclick="payExcel()" title="ดาวน์โหลด Excel">
+          <svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Excel
+        </button>
+        <button onclick="closePay()" aria-label="ปิด">
+          <svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="pay-tools" id="payTools"></div>
+      <div class="pay-kpi" id="payKpi"></div>
+      <div class="pay-bd" id="payBody"><div class="pay-empty">กำลังโหลด…</div></div>
+    </div>
+  </div>
+
   <div class="sw-bg" id="swBg" onclick="if(event.target===this) closeSweep()">
     <div class="sw">
       <div class="sw-hd">
@@ -485,6 +574,7 @@
   const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxkHcKCsM853RD225LZ7wUnxnBZF1D5HoEXnJm7FaLBY8h12oppFDkYmERoQwoTs9cf6w/exec";
 
   let GROUPS = [], TYPE = '', TOTAL = 0, CFG = null, ROUND = null, ROUND_ST = null, IS_DEV = false, UID = '', VIEW = 'all', DEEP_DONE = false;
+  let ROLE = '', PAY = null, PAY_MAP = {}, PAY_AUTO = false;   // ทะเบียนการชำระเบี้ย · ROLE 'acct' = ฝ่ายบัญชีดูอย่างเดียว
   let ALL_ROWS = [], Q = '', MISSING = null, MTAB = 'c';   // c = ขาด พรบ. · v = ขาดประกันภัย                 // รายการกรมธรรม์ทั้งหมด ไว้ค้นหาฝั่งหน้าเว็บ (ไม่ต้องยิง API ทุกตัวอักษร)
 
   /** ประเภท -> รหัสสี: v = ประกันภัย (ม่วง) · c = พรบ. (ฟ้า) */
@@ -701,6 +791,9 @@
       clearTimeout(SLOW_T); clearTimeout(GIVEUP_T);
       GROUPS = g.groups || []; TOTAL = g.total_policies || 0; CFG = (c && c.config) || null; ROUND = (c && c.round) || null; ROUND_ST = (c && c.round_status) || null; IS_DEV = !!(c && c.is_dev);
       document.getElementById('btnSettings').style.display = IS_DEV ? '' : 'none';
+      ROLE = (c && c.role) || '';
+      document.body.classList.toggle('ro', ROLE === 'acct');
+      document.getElementById('payFab').hidden = false;
       ALL_ROWS = (l && l.rows) || [];
       MISSING = (m && m.status === 'success') ? m : null;
       SWEEP = (sw && sw.status === 'success') ? sw.last : null;
@@ -714,6 +807,7 @@
         VIEW = 'soon'; render();
       }
       if(want) setTimeout(()=>openGroup(want), 350);
+      else if((qs.get('view') === 'pay' || ROLE === 'acct') && !PAY_AUTO){ PAY_AUTO = true; setTimeout(openPay, 300); }   // ฝ่ายบัญชีเข้ามาเพื่อดูการชำระ
       else setTimeout(maybeShowSweep, 500);   // ให้หน้าโหลดเสร็จก่อนค่อยเด้ง
       return true;
     }).catch(()=>{
@@ -2093,6 +2187,271 @@
                     icon:'success', confirmButtonColor:'#6200EA' });
       });
     }).catch(function (e) { Swal.fire('สร้างรูปไม่สำเร็จ', e.message || 'ลองใหม่อีกครั้ง', 'error'); });
+  }
+
+  /* =====================================================================
+   * ทะเบียนการชำระเบี้ยประกัน — ตารางคู่ ประกันภัย | พ.ร.บ. แยกตามปีที่เริ่มคุ้มครอง
+   * แอดมิน: ยังไม่เบิก → ทำเรื่องเบิกเงินแล้ว → แนบเอกสารโอน = ชำระแล้ว
+   * ฝ่ายบัญชี (ROLE 'acct'): ดูอย่างเดียว · หลังบ้านกันแก้อีกชั้น
+   * ===================================================================== */
+  const PAY_F = { q:'', co:'', years:null, st:'' };
+  const PAY_TYPES = [['สมัครใจ', 'ประกันภัย'], ['พรบ.', 'พ.ร.บ.']];
+  const PAY_ST = { none:'ยังไม่เบิก', requested:'เบิกแล้ว รอชำระ', paid:'ชำระแล้ว' };
+  const PAY_MAX = 8 * 1024 * 1024;
+
+  function openPay(){
+    document.getElementById('payBg').classList.add('open');
+    document.documentElement.classList.add('payopen');
+    if(PAY) drawPay(); else loadPay();
+  }
+  function closePay(){
+    document.getElementById('payBg').classList.remove('open');
+    document.documentElement.classList.remove('payopen');
+  }
+  document.addEventListener('keydown', function (e) {
+    if(e.key === 'Escape' && document.getElementById('payBg').classList.contains('open') && !document.querySelector('.swal2-container')) closePay();
+  });
+
+  async function loadPay(keepScroll){
+    const bd = document.getElementById('payBody');
+    const top = keepScroll ? bd.scrollTop : 0, left = keepScroll ? bd.scrollLeft : 0;
+    if(!keepScroll) bd.innerHTML = '<div class="pay-empty">กำลังโหลด…</div>';
+    try {
+      const r = await api('ins_pay_list');
+      if(!r || r.status !== 'success') throw new Error((r && r.message) || 'โหลดไม่สำเร็จ');
+      PAY = r; PAY_MAP = {};
+      r.cells.forEach(c => { PAY_MAP[c.key] = c; });
+      if(!PAY_F.years) PAY_F.years = r.years.slice(-3);
+      PAY_F.years = PAY_F.years.filter(y => r.years.indexOf(y) >= 0);
+      if(!PAY_F.years.length) PAY_F.years = r.years.slice(-3);
+      drawPay();
+      bd.scrollTop = top; bd.scrollLeft = left;
+    } catch(e){
+      bd.innerHTML = '<div class="pay-empty">โหลดข้อมูลไม่สำเร็จ<br><small>' + esc(e.message || e) + '</small><br><br>'
+        + '<button class="pchip on" onclick="loadPay()">ลองใหม่</button></div>';
+    }
+  }
+
+  /** '2026-07-01' -> '1/7/69' (พ.ศ. 2 หลัก เหมือนสมุดบัญชี) */
+  function payShort(iso){
+    const p = String(iso || '').split('-'); if(p.length !== 3) return '';
+    return (+p[2]) + '/' + (+p[1]) + '/' + String(+p[0] + 543).slice(-2);
+  }
+  function payNorm(t){ return String(t || '').replace(/[\s\-.]/g, '').toLowerCase(); }
+
+  /** รถที่ผ่านตัวกรอง (ค้นหา/บริษัท/สถานะ) — แต่ละคันมีช่อง type|year */
+  function payVehicles(ignoreSt){
+    const by = {};
+    PAY.cells.forEach(c => {
+      const v = by[c.vkey] || (by[c.vkey] = { vkey:c.vkey, plate:'', insured:'', brand:'', model:'', cells:{} });
+      v.cells[c.type + '|' + c.year_be] = c;
+      if(!v.plate || c.kind === 'cur') { v.plate = c.plate || v.plate; v.insured = c.insured || v.insured; v.brand = c.brand || v.brand; v.model = c.model || v.model; }
+    });
+    const q = payNorm(PAY_F.q), ys = PAY_F.years;
+    return Object.values(by).filter(v => {
+      if(PAY_F.co && coName(v.insured) !== PAY_F.co) return false;
+      const inYears = Object.values(v.cells).filter(c => ys.indexOf(c.year_be) >= 0);
+      if(!inYears.length) return false;
+      if(PAY_F.st && !ignoreSt && !inYears.some(c => c.status === PAY_F.st)) return false;
+      if(q){
+        const hay = payNorm(v.plate + ' ' + v.brand + ' ' + v.model + ' ' + Object.values(v.cells).map(c => c.policy_no || '').join(' '));
+        if(hay.indexOf(q) < 0) return false;
+      }
+      return true;
+    }).sort((a, b) => coName(a.insured).localeCompare(coName(b.insured), 'th') || String(a.plate).localeCompare(String(b.plate), 'th'));
+  }
+
+  function drawPay(){
+    if(!PAY) return;
+    const ys = PAY_F.years.slice().sort();
+    const base = payVehicles(true);   // ไม่กรองสถานะ — ใช้นับ KPI/ชิป ให้เห็นครบทุกหมวดเสมอ
+    const vs = PAY_F.st ? payVehicles() : base;
+    // ช่องที่อยู่ในขอบเขต (รถที่ผ่านตัวกรอง × ปีที่เลือก)
+    const scope = [];
+    base.forEach(v => ys.forEach(y => PAY_TYPES.forEach(t => { const c = v.cells[t[0] + '|' + y]; if(c) scope.push(c); })));
+    const cnt = { none:0, requested:0, paid:0 }, sum = { none:0, requested:0, paid:0 };
+    let estN = 0;
+    scope.forEach(c => { cnt[c.status]++; if(c.kind === 'est') estN++; else sum[c.status] += Number(c.amount) || 0; });
+
+    // ---- แถบเครื่องมือ ----
+    const cos = Array.from(new Set(PAY.cells.map(c => coName(c.insured)))).sort((a, b) => a.localeCompare(b, 'th'));
+    const tools = document.getElementById('payTools');
+    if(!tools.dataset.built){
+      tools.dataset.built = '1';
+      tools.innerHTML = '<input id="payQ" type="search" placeholder="ค้นหาทะเบียน / ยี่ห้อ / เลขกรมธรรม์" oninput="PAY_F.q=this.value;drawPay()">'
+        + '<select id="payCo" onchange="PAY_F.co=this.value;drawPay()"></select>'
+        + '<div class="pchips" id="payYears"></div><div class="pchips" id="paySt"></div>';
+    }
+    const sel = document.getElementById('payCo');
+    sel.innerHTML = '<option value="">ทุกบริษัท</option>' + cos.map(c => '<option' + (c === PAY_F.co ? ' selected' : '') + '>' + esc(c) + '</option>').join('');
+    document.getElementById('payYears').innerHTML = '<span>ปีที่เริ่มคุ้มครอง</span>'
+      + PAY.years.map(y => '<button class="pchip' + (ys.indexOf(y) >= 0 ? ' on' : '') + '" onclick="payYear(' + y + ')">' + y + '</button>').join('');
+    const all = cnt.none + cnt.requested + cnt.paid;
+    document.getElementById('paySt').innerHTML = '<span>สถานะ</span>'
+      + [['', 'ทั้งหมด', all], ['none', PAY_ST.none, cnt.none], ['requested', PAY_ST.requested, cnt.requested], ['paid', PAY_ST.paid, cnt.paid]]
+        .map(s => '<button class="pchip' + (PAY_F.st === s[0] ? ' on' : '') + '" onclick="PAY_F.st=\'' + s[0] + '\';drawPay()">' + s[1] + '<i>' + s[2] + '</i></button>').join('');
+
+    document.getElementById('paySub').textContent = 'ประกันภัย | พ.ร.บ. แยกตามปีที่เริ่มคุ้มครอง · ' + vs.length + ' คัน'
+      + (ROLE === 'acct' ? ' · ฝ่ายบัญชี (ดูอย่างเดียว)' : '');
+    document.getElementById('payKpi').innerHTML =
+        '<div class="k-none"><small>ยังไม่เบิก · ' + cnt.none + ' รายการ</small><b>฿' + baht(sum.none) + '</b>'
+        + (estN ? '<small class="kx" style="opacity:.7">ไม่รวมประมาณการปีหน้า ' + estN + ' รายการ</small>' : '') + '</div>'
+      + '<div class="k-req"><small>เบิกแล้ว รอชำระ · ' + cnt.requested + ' รายการ</small><b>฿' + baht(sum.requested) + '</b></div>'
+      + '<div class="k-paid"><small>ชำระแล้ว · ' + cnt.paid + ' รายการ</small><b>฿' + baht(sum.paid) + '</b></div>';
+
+    // ---- ตาราง ----
+    const bd = document.getElementById('payBody');
+    if(!vs.length){ bd.innerHTML = '<div class="pay-empty">ไม่พบรายการตามตัวกรอง</div>'; return; }
+    const ncol = 1 + ys.length * 2;
+    let h = '<table class="pt"><thead><tr><th class="stk" rowspan="2">ทะเบียน</th>'
+      + ys.map(y => '<th class="y" colspan="2">ปี ' + y + '</th>').join('') + '</tr><tr>'
+      + ys.map(() => PAY_TYPES.map((t, i) => '<th' + (i ? '' : ' class="y"') + '>' + t[1] + '</th>').join('')).join('') + '</tr></thead><tbody>';
+    let lastCo = null;
+    vs.forEach(v => {
+      const co = coName(v.insured);
+      if(co !== lastCo){ lastCo = co; h += '<tr class="pgh"><td colspan="' + ncol + '">' + esc(co === '-' ? '(ไม่ระบุบริษัท)' : co) + '</td></tr>'; }
+      h += '<tr><td class="stk"><b>' + esc(v.plate || '(ไม่มีทะเบียน)') + '</b><small>' + esc([v.brand, v.model].filter(Boolean).join(' ')) + '</small></td>';
+      ys.forEach(y => PAY_TYPES.forEach((t, i) => {
+        const c = v.cells[t[0] + '|' + y], yc = i ? '' : ' y';
+        if(!c){ h += '<td class="pc pnone' + yc + '">–</td>'; return; }
+        const dim = PAY_F.st && c.status !== PAY_F.st ? ' dim' : '';
+        h += '<td class="pc' + yc + (c.kind === 'est' ? ' est' : '') + dim + '" onclick="payCell(\'' + esc(c.key) + '\')" title="' + esc(c.policy_no || '') + '">'
+          + '<small>' + payShort(c.start_date) + '–' + payShort(c.end_date) + '</small>'
+          + '<b>' + (c.amount ? baht(c.amount) : '-') + (c.kind === 'est' ? '*' : '') + '</b>'
+          + '<span class="pp ' + c.status + '">' + (c.status === 'paid' ? '✓ ' : '') + PAY_ST[c.status].replace(' รอชำระ', '') + '</span></td>';
+      }));
+      h += '</tr>';
+    });
+    h += '</tbody></table>';
+    if(estN || vs.some(v => Object.values(v.cells).some(c => c.kind === 'est')))
+      h += '<div class="pay-note">* ปีถัดไปของกรมธรรม์ที่ใกล้หมด (เหลือไม่เกิน 120 วัน) — ยอดประมาณจากเบี้ยปีปัจจุบัน จนกว่าจะแนบเล่มใหม่</div>';
+    bd.innerHTML = h;
+  }
+
+  function payYear(y){
+    const i = PAY_F.years.indexOf(y);
+    if(i >= 0){ if(PAY_F.years.length > 1) PAY_F.years.splice(i, 1); }
+    else PAY_F.years.push(y);
+    drawPay();
+  }
+
+  function payInfoHtml(c){
+    const r = (k, v) => v ? '<div class="r"><span>' + k + '</span><b>' + v + '</b></div>' : '';
+    return r('ทะเบียน', esc(c.plate || '-'))
+      + r('บริษัท', esc(coName(c.insured)))
+      + r('ประเภท', esc(typeLabel(c.type)) + ' · ปี ' + c.year_be)
+      + r('เลขกรมธรรม์', esc(c.policy_no || '') || (c.kind === 'est' ? 'ยังไม่มี (ปีถัดไป)' : '-'))
+      + r('คุ้มครอง', esc(beDate(c.start_date)) + ' – ' + esc(beDate(c.end_date)))
+      + r('เบี้ย', '฿' + baht(c.amount) + (c.kind === 'est' ? ' <small style="color:#999">(ประมาณ)</small>' : ''))
+      + r('สถานะ', '<span class="pp ' + c.status + '">' + PAY_ST[c.status] + '</span>')
+      + r('ทำเรื่องเบิก', c.requested_at ? esc(beDate(String(c.requested_at).slice(0, 10))) + (c.requested_by ? ' · ' + esc(c.requested_by) : '') : '')
+      + r('วันที่ชำระ', c.paid_at ? esc(beDate(String(c.paid_at).slice(0, 10))) + (c.paid_by ? ' · ' + esc(c.paid_by) : '') : '')
+      + r('เอกสารโอนเงิน', c.slip_url ? '<a href="' + esc(c.slip_url) + '" target="_blank" rel="noopener">เปิดดูเอกสาร</a>' : '')
+      + r('หมายเหตุ', esc(c.note || ''));
+  }
+
+  async function payCell(key){
+    const c = PAY_MAP[key]; if(!c) return;
+    const title = esc(c.plate || '') + ' · ' + esc(typeLabel(c.type)) + ' ' + c.year_be;
+    if(ROLE === 'acct'){
+      Swal.fire({ title:title, html:'<div class="pay-sw">' + payInfoHtml(c) + '</div>', confirmButtonText:'ปิด', confirmButtonColor:'#6200EA' });
+      return;
+    }
+    const noteBox = '<label>หมายเหตุ (ไม่บังคับ)</label><textarea id="payNote">' + esc(c.note || '') + '</textarea>';
+    if(c.status === 'none'){
+      const a = await Swal.fire({ title:title, html:'<div class="pay-sw">' + payInfoHtml(c) + noteBox + '</div>',
+        showCancelButton:true, confirmButtonText:'ทำเรื่องเบิกเงินแล้ว', cancelButtonText:'ปิด', confirmButtonColor:'#FF9100',
+        preConfirm:() => document.getElementById('payNote').value });
+      if(a.isConfirmed) paySave({ key:key, op:'request', note:a.value }, 'บันทึกว่าทำเรื่องเบิกเงินแล้ว');
+      return;
+    }
+    if(c.status === 'requested'){
+      const a = await Swal.fire({ title:title, html:'<div class="pay-sw">' + payInfoHtml(c) + '</div>',
+        showDenyButton:true, showCancelButton:true, confirmButtonText:'แนบเอกสารโอน → ชำระแล้ว', denyButtonText:'ยกเลิกการเบิก',
+        cancelButtonText:'ปิด', confirmButtonColor:'#00C853', denyButtonColor:'#9E9E9E' });
+      if(a.isDenied){
+        const ok = await Swal.fire({ title:'ยกเลิกการเบิก?', text:'สถานะจะกลับเป็น "ยังไม่เบิก"', icon:'question',
+          showCancelButton:true, confirmButtonText:'ยกเลิกการเบิก', cancelButtonText:'ไม่', confirmButtonColor:'#FF5252' });
+        if(ok.isConfirmed) paySave({ key:key, op:'unrequest' }, 'ยกเลิกการเบิกแล้ว');
+      } else if(a.isConfirmed) payMarkPaid(c);
+      return;
+    }
+    // ชำระแล้ว
+    const a = await Swal.fire({ title:title, html:'<div class="pay-sw">' + payInfoHtml(c) + '</div>',
+      showDenyButton:true, showCancelButton:true, confirmButtonText:'ปิด', denyButtonText:'ยกเลิกสถานะชำระ',
+      cancelButtonText:'แก้ไขเอกสาร/วันที่', confirmButtonColor:'#6200EA', denyButtonColor:'#9E9E9E', cancelButtonColor:'#00C853', reverseButtons:true });
+    if(a.isDenied){
+      const ok = await Swal.fire({ title:'ยกเลิกสถานะชำระ?', text:'ลิงก์เอกสารโอนเงินจะถูกเอาออก สถานะกลับเป็น "เบิกแล้ว รอชำระ"', icon:'warning',
+        showCancelButton:true, confirmButtonText:'ยกเลิกสถานะชำระ', cancelButtonText:'ไม่', confirmButtonColor:'#FF5252' });
+      if(ok.isConfirmed) paySave({ key:key, op:'unpaid' }, 'ยกเลิกสถานะชำระแล้ว');
+    } else if(a.dismiss === Swal.DismissReason.cancel) payMarkPaid(c);
+  }
+
+  async function payMarkPaid(c){
+    const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const a = await Swal.fire({
+      title:'บันทึกชำระแล้ว',
+      html:'<div class="pay-sw"><div class="r"><span>' + esc(c.plate || '') + ' · ' + esc(typeLabel(c.type)) + ' ' + c.year_be + '</span><b>฿' + baht(c.amount) + '</b></div>'
+        + '<label>วันที่โอนเงิน</label><input type="date" id="payDate" value="' + esc(String(c.paid_at || today).slice(0, 10)) + '" max="' + today + '">'
+        + '<label>เอกสารโอนเงิน (PDF หรือรูป ไม่เกิน 8MB)' + (c.slip_url ? ' — ไม่เลือกไฟล์ = ใช้เอกสารเดิม' : '') + '</label>'
+        + '<input type="file" id="payFile" accept="application/pdf,image/*">'
+        + '<label>หมายเหตุ (ไม่บังคับ)</label><textarea id="payNote">' + esc(c.note || '') + '</textarea></div>',
+      showCancelButton:true, confirmButtonText:'บันทึกชำระแล้ว', cancelButtonText:'ยกเลิก', confirmButtonColor:'#00C853',
+      preConfirm:() => {
+        const f = document.getElementById('payFile').files[0], d = document.getElementById('payDate').value;
+        if(!d){ Swal.showValidationMessage('ระบุวันที่โอนเงิน'); return false; }
+        if(!f && !c.slip_url){ Swal.showValidationMessage('แนบเอกสารโอนเงินก่อน'); return false; }
+        if(f && f.size > PAY_MAX){ Swal.showValidationMessage('ไฟล์ใหญ่เกิน 8MB'); return false; }
+        return { f:f, d:d, note:document.getElementById('payNote').value };
+      }
+    });
+    if(!a.isConfirmed) return;
+    const body = { key:c.key, op:'paid', paid_date:a.value.d, note:a.value.note };
+    if(a.value.f){
+      try {
+        body.fileBase64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(a.value.f); });
+      } catch(e){ toast('อ่านไฟล์ไม่ได้ ลองเลือกใหม่', true); return; }
+      body.fileName = a.value.f.name; body.fileMimeType = a.value.f.type || 'application/pdf';
+    }
+    paySave(body, 'บันทึกชำระแล้ว');
+  }
+
+  async function paySave(body, okMsg){
+    Swal.fire({ title:'กำลังบันทึก…', allowOutsideClick:false, didOpen:() => Swal.showLoading() });
+    try {
+      const r = await post(Object.assign({ action:'ins_pay_set' }, body));
+      if(!r || r.status !== 'success') throw new Error((r && r.message) || 'บันทึกไม่สำเร็จ');
+      Swal.close(); setTimeout(unstick, 60);
+      toast(okMsg);
+      await loadPay(true);
+    } catch(e){
+      Swal.fire({ title:'บันทึกไม่สำเร็จ', text:e.message || String(e), icon:'error', confirmButtonColor:'#6200EA' });
+    }
+  }
+
+  async function payExcel(){
+    if(!PAY) return;
+    const ys = PAY_F.years.slice().sort(), rows = [];
+    payVehicles().forEach(v => ys.forEach(y => PAY_TYPES.forEach(t => {
+      const c = v.cells[t[0] + '|' + y];
+      if(!c || (PAY_F.st && c.status !== PAY_F.st)) return;
+      rows.push([coName(c.insured), c.plate || '', t[1], String(c.year_be), c.policy_no || '',
+        payShort(c.start_date) + ' – ' + payShort(c.end_date), Number(c.amount) || 0, c.kind === 'est' ? 'ประมาณการ' : '',
+        PAY_ST[c.status],
+        c.requested_at ? beDate(String(c.requested_at).slice(0, 10)) + (c.requested_by ? ' · ' + c.requested_by : '') : '',
+        c.paid_at ? beDate(String(c.paid_at).slice(0, 10)) + (c.paid_by ? ' · ' + c.paid_by : '') : '',
+        c.slip_url || '', c.note || '']);
+    })));
+    if(!rows.length){ toast('ไม่มีรายการให้ออกไฟล์', true); return; }
+    const d = new Date(), stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+    const total = rows.reduce((s, r) => s + (r[7] ? 0 : r[6]), 0);
+    await saveXlsx({ title:'ทะเบียนการชำระเบี้ยประกัน', sheet:'การชำระเบี้ย', file:'การชำระเบี้ยประกัน_' + stamp + '.xlsx',
+      sub:'ปีที่เริ่มคุ้มครอง ' + ys.join(', ') + (PAY_F.co ? ' · ' + PAY_F.co : '') + (PAY_F.st ? ' · ' + PAY_ST[PAY_F.st] : '')
+        + ' · ' + rows.length + ' รายการ · เบี้ยรวม ' + baht(total) + ' บาท (ไม่รวมประมาณการ)',
+      cols:[['บริษัท', ''], ['ทะเบียน', ''], ['ประเภท', ''], ['ปี', ''], ['เลขกรมธรรม์', ''], ['คุ้มครอง', ''], ['เบี้ย (บาท)', 'money'],
+            ['หมายเหตุยอด', ''], ['สถานะ', ''], ['ทำเรื่องเบิก', ''], ['วันที่ชำระ', ''], ['เอกสารโอนเงิน', ''], ['หมายเหตุ', '']],
+      rows:rows });
+    setTimeout(unstick, 60);
   }
 </script>
 </body>
