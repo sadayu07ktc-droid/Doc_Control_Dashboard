@@ -358,6 +358,13 @@
     .pay-bill{ margin-top:8px; padding:4px 10px 8px; background:#F1FAFC; border:1px solid #CDEFF4; border-radius:12px; }
     .pay-warn{ margin-top:8px; padding:8px 10px; background:#FFF4E5; color:#B45309; border-radius:10px; font-size:12.5px; }
     .pay-okline{ margin-top:8px; color:#1B7A3D; font-size:12.5px; font-weight:500; }
+    .pay-hist{ margin-top:12px; border-top:1px dashed #E0D7F0; padding-top:8px; text-align:left; }
+    .pay-hist .ph-t{ font-size:12px; font-weight:600; color:#6200EA; margin-bottom:4px; }
+    .pay-hist .ph-l{ font-size:12px; color:#999; }
+    .pay-hist .ph-r{ font-size:12px; padding:5px 0 5px 10px; border-left:3px solid #D1C4E9; margin:3px 0; line-height:1.45; }
+    .pay-hist .ph-r span{ color:#999; font-size:11px; display:block; }
+    .pay-hist .ph-r.check{ border-color:#00A040; } .pay-hist .ph-r.uncheck, .pay-hist .ph-r.unbill{ border-color:#E53935; }
+    .pay-hist .ph-r.report{ border-color:#FF8F00; } .pay-hist .ph-r em{ color:#B45309; font-style:normal; }
     .pc{ position:relative; }
     .psel{ position:absolute; left:6px; top:6px; width:22px; height:22px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
     .psel input{ width:17px; height:17px; margin:0; accent-color:#00A040; cursor:pointer; }
@@ -2305,6 +2312,31 @@
     return (+p[2]) + '/' + (+p[1]) + '/' + String(+p[0] + 543).slice(-2);
   }
   function payNorm(t){ return String(t || '').replace(/[\s\-.]/g, '').toLowerCase(); }
+  /** คำค้นหลายคำ (ผู้ใช้ขอ 2026-11-16 กรองหลายทะเบียน): คั่นด้วย , ; | ขึ้นบรรทัด หรือเว้นวรรค
+     ทะเบียนที่มีเว้นวรรคในตัว ("87 3275", "กง 8945") จับรวมเป็นคำเดียวให้ — หมวดอักษร/เลข 1–3 ตัว ตามด้วยเลข */
+  function payTerms(q){
+    const out = [];
+    String(q || '').split(/[,;|\r\n\t]+/).forEach(chunk => {
+      const tk = chunk.trim().split(/\s+/).filter(Boolean);
+      for(let i = 0; i < tk.length; i++){
+        let t = tk[i];
+        if(i + 1 < tk.length && /^[0-9ก-ฮ]{1,3}$/.test(t) && /^\d{1,4}$/.test(tk[i + 1])) t += tk[++i];
+        const n = payNorm(t); if(n) out.push(n);
+      }
+    });
+    return Array.from(new Set(out));
+  }
+  function payHay(v){ return payNorm(v.plate + ' ' + v.brand + ' ' + v.model + ' ' + Object.values(v.cells).map(c => (c.policy_no || '') + ' ' + (c.bill_no || '')).join(' ')); }
+  /** วางรายการหลายบรรทัด (เช่นก๊อปจาก Excel) — ช่อง input ตัดบรรทัดทิ้ง เลยแปลงเป็น , ก่อน */
+  function payPaste(e){
+    const t = (e.clipboardData || window.clipboardData || { getData:() => '' }).getData('text');
+    if(!t || !/[\r\n\t]/.test(t)) return;
+    e.preventDefault();
+    const el = e.target, v = t.split(/[\r\n\t]+/).map(x => x.trim()).filter(Boolean).join(', ');
+    const a = el.selectionStart || 0, b = el.selectionEnd || 0, pre = el.value.slice(0, a);
+    el.value = pre + (pre && !/[,\s]$/.test(pre) ? ', ' : '') + v + el.value.slice(b);
+    PAY_F.q = el.value; drawPay();
+  }
   function payDay(t){ return t ? beDate(String(t).slice(0, 10)) : ''; }
   /** timestamp → '16 พ.ย. 2569 13:05 น.' (เวลาไทย) */
   function payDayTime(t){
@@ -2322,16 +2354,13 @@
       v.cells[c.type + '|' + c.year_be] = c;
       if(!v.plate || c.kind === 'cur') { v.plate = c.plate || v.plate; v.insured = c.insured || v.insured; v.brand = c.brand || v.brand; v.model = c.model || v.model; }
     });
-    const q = payNorm(PAY_F.q), ys = PAY_F.years;
+    const qs = payTerms(PAY_F.q), ys = PAY_F.years;
     return Object.values(by).filter(v => {
       if(PAY_F.co && coName(v.insured) !== PAY_F.co) return false;
       const inYears = Object.values(v.cells).filter(c => ys.indexOf(c.year_be) >= 0);
       if(!inYears.length) return false;
       if(PAY_F.st && !ignoreSt && !inYears.some(c => c.status === PAY_F.st)) return false;
-      if(q){
-        const hay = payNorm(v.plate + ' ' + v.brand + ' ' + v.model + ' ' + Object.values(v.cells).map(c => (c.policy_no || '') + ' ' + (c.bill_no || '')).join(' '));
-        if(hay.indexOf(q) < 0) return false;
-      }
+      if(qs.length){ const hay = payHay(v); if(!qs.some(t => hay.indexOf(t) >= 0)) return false; }
       return true;
     }).sort((a, b) => coName(a.insured).localeCompare(coName(b.insured), 'th') || String(a.plate).localeCompare(String(b.plate), 'th'));
   }
@@ -2356,7 +2385,7 @@
     const tools = document.getElementById('payTools');
     if(!tools.dataset.built){
       tools.dataset.built = '1';
-      tools.innerHTML = '<input id="payQ" type="search" placeholder="ค้นหาทะเบียน / ยี่ห้อ / เลขกรมธรรม์ / เลขที่บิล" oninput="PAY_F.q=this.value;drawPay()">'
+      tools.innerHTML = '<input id="payQ" type="search" placeholder="ค้นหาทะเบียน (หลายคันคั่นด้วย , หรือวางจาก Excel) / ยี่ห้อ / เลขกรมธรรม์ / เลขที่บิล" oninput="PAY_F.q=this.value;drawPay()" onpaste="payPaste(event)">'
         + '<select id="payCo" onchange="PAY_F.co=this.value;drawPay()"></select>'
         + '<div class="pchips" id="payYears"></div><div class="pchips" id="paySt"></div><div class="pay-cnt" id="payCount"></div>';
     }
@@ -2366,7 +2395,13 @@
     document.getElementById('payCount').innerHTML = '<b>' + esc(PAY_F.co || 'ทุกบริษัท') + '</b>'
       + '<span><i>' + base.length + '</i> คัน</span>'
       + PAY_TYPES.map((t, i) => '<span>' + t[1] + ' <i>' + nT[i] + '</i> คัน</span>').join('')
-      + '<small>ปี ' + ys.join(', ') + '</small>';
+      + '<small>ปี ' + ys.join(', ') + '</small>'
+      + (function(){   // ค้นหลายทะเบียน → บอกว่าคำไหนไม่เจอ (ตามบริษัท/ปีที่เลือก)
+          const qs = payTerms(PAY_F.q); if(qs.length < 2) return '';
+          const hays = base.map(payHay), miss = qs.filter(t => !hays.some(h => h.indexOf(t) >= 0));
+          return '<span style="flex-basis:100%;margin:0;padding:0;background:none;border:0;font-size:12px;color:' + (miss.length ? '#C62828' : '#1B7A3D') + '">ค้นหา ' + qs.length + ' คำ'
+            + (miss.length ? ' · ไม่พบ ' + miss.length + ': ' + esc(miss.join(', ')) : ' · เจอครบทุกคำ') + '</span>';
+        })();
     const sel = document.getElementById('payCo');
     sel.innerHTML = '<option value="">ทุกบริษัท</option>' + cos.map(c => '<option' + (c === PAY_F.co ? ' selected' : '') + '>' + esc(c) + '</option>').join('');
     document.getElementById('payYears').innerHTML = '<span>ปีที่เริ่มคุ้มครอง</span>'
@@ -2463,6 +2498,7 @@
     if(!list.length){ toast('ยังไม่ได้เลือกบิล', true); return; }
     const sum = list.reduce((s, c) => s + (Number(c.bill_amount || c.amount) || 0), 0), today = payToday();
     const warn = list.filter(c => c.bill_issues).length;
+    let warnedDoc = '';
     const a = await Swal.fire({ title:'ตรวจสอบการชำระแล้ว',
       html:'<div class="pay-sw"><div class="pck-list">' + list.map(c => '<div class="r"><span>' + esc(c.plate || '-') + ' · ' + esc(typeLabel(c.type)) + ' ' + c.year_be
             + '<br><small>บิล ' + esc(c.bill_no || '-') + (c.bill_issues ? ' · <em>⚠ ' + esc(c.bill_issues) + '</em>' : '') + '</small></span>'
@@ -2479,6 +2515,13 @@
         const doc = document.getElementById('pckDoc').value.trim(), d = document.getElementById('pckDate').value;
         if(!doc){ Swal.showValidationMessage('ใส่เลขเอกสารการจ่าย'); return false; }
         if(!d){ Swal.showValidationMessage('ระบุวันที่ชำระ'); return false; }
+        const used = PAY.cells.filter(x => x.paid_doc && x.paid_doc.trim().toUpperCase() === doc.toUpperCase());
+        if(used.length && warnedDoc !== doc.toUpperCase()){   // เลขเอกสารเคยใช้กับชุดอื่น → เตือนก่อน กดยืนยันซ้ำจึงผ่าน
+          warnedDoc = doc.toUpperCase();
+          Swal.showValidationMessage('⚠ เลข ' + doc + ' เคยใช้กับ ' + used.length + ' บิลแล้ว (' + used.slice(0, 3).map(x => x.plate).join(', ')
+            + (used.length > 3 ? ' …' : '') + ' · ชำระ ' + payDay(used[0].paid_at) + ') — ถ้าตั้งใจใช้เลขเดิม กดยืนยันอีกครั้ง');
+          return false;
+        }
         return { doc:doc, d:d, note:document.getElementById('pckNote').value.trim() };
       } });
     if(!a.isConfirmed) return;
@@ -2528,6 +2571,7 @@
           + r('เข้าระบบ', esc(payDayTime(c.billed_at)) + (c.billed_by ? ' · ' + esc(c.billed_by) : ''))
           + (c.bill_issues ? '<div class="pay-warn">⚠ ' + esc(c.bill_issues) + '</div>' : '<div class="pay-okline">✓ ใบวางบิลตรงกับข้อมูลในระบบ</div>')
           + '</div>' : '')
+      + r('ออกรายงานรอจ่าย', c.rep_n ? c.rep_n + ' ครั้ง · ล่าสุด ' + esc(payDayTime(c.rep_at)) + (c.rep_by ? ' · ' + esc(c.rep_by) : '') : '')
       + r('ตรวจสอบ / ชำระ', c.paid_at ? esc(payDay(c.paid_at)) + (c.paid_by ? ' · ' + esc(c.paid_by) : '') : '')
       + r('เลขเอกสารการจ่าย', esc(c.paid_doc || ''))
       + r('หมายเหตุ', esc(c.note || ''));
@@ -2549,13 +2593,14 @@
         confirmButtonText:'ปิด', confirmButtonColor:'#6200EA' });
       return;
     }
+    const hist = '<div class="pay-hist" id="payHist"></div>';
     if(c.status === 'billed'){
       const can = payCanCheck();
       const a = await Swal.fire({ title:title,
-        html: info + (can ? '' : '<div style="color:#999;font-size:12.5px;margin-top:10px">รอฝ่ายบัญชีตรวจสอบ</div>') + '</div>',
+        html: info + (can ? '' : '<div style="color:#999;font-size:12.5px;margin-top:10px">รอฝ่ายบัญชีตรวจสอบ</div>') + hist + '</div>',
         showConfirmButton:can, confirmButtonText:'✓ ตรวจสอบการชำระแล้ว', confirmButtonColor:'#00A040',
         showDenyButton:true, denyButtonText:'ลบใบวางบิล (ผิดใบ)', denyButtonColor:'#9E9E9E',
-        showCancelButton:true, cancelButtonText:'ปิด' });
+        showCancelButton:true, cancelButtonText:'ปิด', didOpen:() => payHist(key) });
       if(a.isConfirmed) payCheckFlow([key]);
       else if(a.isDenied){
         const ok = await Swal.fire({ title:'ลบใบวางบิลออก?', text:'สถานะจะกลับเป็น "ยังไม่วางบิล" (ไฟล์ในโฟลเดอร์แชร์ไม่ถูกลบ)', icon:'warning',
@@ -2565,13 +2610,56 @@
       return;
     }
     // ชำระแล้ว
-    const a = await Swal.fire({ title:title, html: info + '</div>', confirmButtonText:'ปิด', confirmButtonColor:'#6200EA',
-      showDenyButton:payCanCheck(), denyButtonText:'ยกเลิกการตรวจ', denyButtonColor:'#9E9E9E' });
-    if(a.isDenied){
-      const ok = await Swal.fire({ title:'ยกเลิกการตรวจ?', text:'สถานะจะกลับเป็น "วางบิล รอตรวจสอบ"', icon:'question',
-        showCancelButton:true, confirmButtonText:'ยกเลิกการตรวจ', cancelButtonText:'ไม่', confirmButtonColor:'#FF5252' });
-      if(ok.isConfirmed) paySave({ key:key, op:'uncheck' }, 'ยกเลิกการตรวจแล้ว');
-    }
+    const a = await Swal.fire({ title:title, html: info + hist + '</div>', confirmButtonText:'ปิด', confirmButtonColor:'#6200EA',
+      showDenyButton:payCanCheck(), denyButtonText:'ยกเลิกการตรวจ', denyButtonColor:'#9E9E9E', didOpen:() => payHist(key) });
+    if(a.isDenied) payUncheck(key);
+  }
+
+  /** ประวัติของช่องนี้ (เก็บตั้งแต่ 16 พ.ย. 2569) — โหลดหลังเปิด popup */
+  const PAY_ACT = { bill:'เข้าระบบ (วางบิล)', report:'ออกรายงานรอจ่าย', check:'ตรวจสอบ / ชำระแล้ว', uncheck:'ยกเลิกการตรวจ', unbill:'ลบใบวางบิล' };
+  async function payHist(key){
+    const el = document.getElementById('payHist'); if(!el) return;
+    el.innerHTML = '<div class="ph-t">ประวัติ</div><div class="ph-l">กำลังโหลด…</div>';
+    let L = null;
+    try { const r = await post({ action:'ins_pay_log', key:key }); if(r && r.status === 'success') L = r.log || []; } catch(e){}
+    const box = document.getElementById('payHist'); if(!box) return;
+    if(!L){ box.innerHTML = '<div class="ph-t">ประวัติ</div><div class="ph-l">โหลดประวัติไม่ได้</div>'; return; }
+    box.innerHTML = '<div class="ph-t">ประวัติ</div>' + (L.length ? L.map(x => {
+      const d = [x.who, x.doc ? (x.act === 'check' || x.act === 'uncheck' ? 'เอกสาร ' : 'บิล ') + x.doc : '',
+        x.amount != null && x.amount !== '' ? '฿' + baht(x.amount) : '', x.act === 'report' ? x.ref : ''].filter(Boolean).map(esc).join(' · ');
+      return '<div class="ph-r ' + esc(x.act) + '"><span>' + esc(payDayTime(x.at)) + '</span><b>' + esc(PAY_ACT[x.act] || x.act) + '</b>'
+        + (d ? ' · ' + d : '') + (x.reason ? '<br><em>เหตุผล: ' + esc(x.reason) + '</em>' : '') + '</div>';
+    }).join('') : '<div class="ph-l">ยังไม่มีประวัติ (เริ่มเก็บ 16 พ.ย. 2569)</div>');
+  }
+
+  /** ยกเลิกการตรวจ = กลับไปรอจ่าย → ต้องมีเหตุผล + รหัส 6 หลัก (กันจ่ายซ้ำ) */
+  async function payUncheck(key){
+    const c = PAY_MAP[key]; if(!c) return;
+    const a = await Swal.fire({ title:'ยกเลิกการตรวจ?', icon:'warning',
+      html:'<div class="pay-sw"><div class="pay-warn" style="margin-top:0">รายการจะกลับเป็น "วางบิล รอตรวจสอบ" และจะติดรายงานรอจ่ายรอบหน้า<br><b>ถ้าเงินจ่ายไปแล้วจริง อย่ายกเลิก</b> ไม่งั้นอาจจ่ายซ้ำ</div>'
+        + '<label>เหตุผลที่ยกเลิก <b style="color:#E53935">*</b></label><textarea id="ucReason" maxlength="300" placeholder="เช่น ติ๊กผิดคัน / ใส่เลขเอกสารผิด"></textarea></div>',
+      showCancelButton:true, confirmButtonText:'ถัดไป', cancelButtonText:'ไม่ยกเลิก', confirmButtonColor:'#FF5252',
+      didOpen:() => document.getElementById('ucReason').focus(),
+      preConfirm:() => { const v = document.getElementById('ucReason').value.trim();
+        if(v.length < 3){ Swal.showValidationMessage('ใส่เหตุผลที่ยกเลิก'); return false; } return v; } });
+    if(!a.isConfirmed) return;
+    const r = await Swal.fire({ title:'ใส่รหัสผ่าน 6 หลัก', html:'ยืนยันยกเลิกการตรวจ ' + esc(c.plate || '') + ' · ' + esc(typeLabel(c.type)) + ' ' + c.year_be
+        + (c.paid_doc ? '<br><small style="color:#999">เอกสารการจ่ายเดิม ' + esc(c.paid_doc) + '</small>' : ''),
+      input:'password', inputAttributes:{ maxlength:6, inputmode:'numeric', autocomplete:'off', 'aria-label':'รหัสผ่าน 6 หลัก' },
+      showCancelButton:true, confirmButtonText:'ยกเลิกการตรวจ', cancelButtonText:'ไม่', confirmButtonColor:'#FF5252',
+      showLoaderOnConfirm:true, allowOutsideClick:() => !Swal.isLoading(),
+      preConfirm:async (pin) => {
+        if(!/^\d{6}$/.test(pin || '')){ Swal.showValidationMessage('รหัสเป็นตัวเลข 6 หลัก'); return false; }
+        try {
+          const res = await post({ action:'ins_pay_set', op:'uncheck', key:key, pin:pin, reason:a.value });
+          if(!res || res.status !== 'success'){ Swal.showValidationMessage((res && res.message) || 'บันทึกไม่สำเร็จ'); return false; }
+          return res;
+        } catch(e){ Swal.showValidationMessage('เชื่อมต่อไม่ได้ ลองใหม่'); return false; }
+      } });
+    if(!r.isConfirmed) return;
+    setTimeout(unstick, 60);
+    toast('ยกเลิกการตรวจแล้ว · กลับเป็นรอตรวจสอบ');
+    await loadPay(true);
   }
 
   async function paySave(body, okMsg){
@@ -2608,20 +2696,41 @@
       preDeny:() => ({ co:document.getElementById('rbCo').value, mon:document.getElementById('rbMon').value }) });
     if(!a.isConfirmed && !a.isDenied) return;
     const f = a.value;
-    const rows = all.filter(c => (!f.co || coName(c.insured) === f.co) && (!f.mon || billMonth(c) === f.mon))
+    let rows = all.filter(c => (!f.co || coName(c.insured) === f.co) && (!f.mon || billMonth(c) === f.mon))
       .sort((x, y) => coName(x.insured).localeCompare(coName(y.insured), 'th') || String(x.bill_date || '').localeCompare(String(y.bill_date || '')) || String(x.plate).localeCompare(String(y.plate), 'th'));
     if(!rows.length){ Swal.fire({ title:'ไม่มีรายการตามที่เลือก', icon:'info', confirmButtonColor:'#6200EA' }); return; }
     const monLabel = f.mon ? 'วางบิลเดือน ' + billMonthLabel(f.mon) : 'ทุกเดือน';
+    /* กันจ่ายซ้ำ: บิลที่เคยออกรายงานแล้วแต่ยังไม่ได้ติ๊กตรวจ อาจจ่ายไปแล้ว → เตือนก่อน */
+    const rep = rows.filter(c => c.rep_n > 0), fresh = rows.length - rep.length;
+    if(rep.length){
+      const b = await Swal.fire({ title:'มีบิลที่เคยออกรายงานแล้ว', icon:'warning',
+        html:'<div class="pay-sw"><div class="pay-warn" style="margin-top:0">⚠ <b>' + rep.length + '</b> จาก ' + rows.length + ' บิล เคยอยู่ในรายงานรอจ่ายที่พิมพ์/ออก Excel ไปแล้ว'
+          + '<br>ถ้าจ่ายเงินบิลเหล่านี้ไปแล้ว ให้ติ๊ก "ตรวจสอบการชำระแล้ว" ก่อน ไม่งั้นอาจจ่ายซ้ำ</div>'
+          + '<div class="pck-list" style="margin-top:10px">' + rep.map(c => '<div class="r"><span>' + esc(c.plate || '-') + ' · ' + esc(typeLabel(c.type)) + ' ' + c.year_be
+              + '<br><small>บิล ' + esc(c.bill_no || '-') + ' · ออกรายงาน ' + c.rep_n + ' ครั้ง ล่าสุด ' + esc(payDayTime(c.rep_at)) + (c.rep_by ? ' · ' + esc(c.rep_by) : '') + '</small></span>'
+              + '<b>฿' + baht(c.bill_amount || c.amount) + '</b></div>').join('') + '</div></div>',
+        showDenyButton:fresh > 0, denyButtonText:'เอาเฉพาะบิลใหม่ (' + fresh + ')', denyButtonColor:'#00A040',
+        confirmButtonText:'ออกทั้งหมด ' + rows.length + ' (มีพิมพ์ซ้ำ)', confirmButtonColor:'#FF8F00',
+        showCancelButton:true, cancelButtonText:'ยกเลิก' });
+      if(b.isDenied) rows = rows.filter(c => !c.rep_n);
+      else if(!b.isConfirmed) return;
+    }
+    const again = rows.filter(c => c.rep_n > 0).length;
+    const logRep = (how) => post({ action:'ins_pay_report', keys:rows.map(c => c.key), label:(f.co || 'ทุกบริษัท') + ' · ' + monLabel + ' · ' + how })
+      .then(r => { if(r && r.status === 'success') rows.forEach(c => { c.rep_n = (c.rep_n || 0) + 1; c.rep_at = r.at; c.rep_by = r.by; }); }).catch(() => {});
+    const repMark = c => c.rep_n ? 'พิมพ์ซ้ำ · เคยออกรายงาน ' + payDay(c.rep_at) + (c.rep_n > 1 ? ' (' + c.rep_n + ' ครั้ง)' : '') : '';
     if(a.isDenied){
       const d = new Date(), stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
       const total = rows.reduce((s, c) => s + (Number(c.bill_amount || c.amount) || 0), 0);
       await saveXlsx({ title:'รายงานวางบิลค่าเบี้ยประกัน (รอจ่าย)', sheet:'วางบิล รอจ่าย', file:'รายงานวางบิล_' + stamp + '.xlsx',
-        sub:(f.co || 'ทุกบริษัท') + ' · ' + monLabel + ' · ' + rows.length + ' รายการ · รวม ' + baht(total) + ' บาท',
+        sub:(f.co || 'ทุกบริษัท') + ' · ' + monLabel + ' · ' + rows.length + ' รายการ · รวม ' + baht(total) + ' บาท' + (again ? ' · ⚠ พิมพ์ซ้ำ ' + again + ' รายการ' : ''),
         cols:[['ลำดับ', 'num'], ['บริษัท', ''], ['ทะเบียน', ''], ['ประเภท', ''], ['เลขกรมธรรม์', ''], ['คุ้มครอง', ''], ['เลขที่ใบวางบิล', ''],
               ['วันที่วางบิล', ''], ['จำนวนเงิน (บาท)', 'money'], ['ข้อสังเกต', '']],
         rows: rows.map((c, i) => [i + 1, coName(c.insured), c.plate || '', typeLabel(c.type), c.bill_policy_no || c.policy_no || '',
-          payShort(c.start_date) + ' – ' + payShort(c.end_date), c.bill_no || '', payDay(c.bill_date), Number(c.bill_amount || c.amount) || 0, c.bill_issues || ''])
+          payShort(c.start_date) + ' – ' + payShort(c.end_date), c.bill_no || '', payDay(c.bill_date), Number(c.bill_amount || c.amount) || 0,
+          [repMark(c), c.bill_issues || ''].filter(Boolean).join(' · ')])
           .concat([['', '', '', '', '', '', '', 'รวม', total, '']]) });
+      logRep('Excel');
       setTimeout(unstick, 60);
       return;
     }
@@ -2634,10 +2743,12 @@
       const list = byCo[co], total = list.reduce((s, c) => s + (Number(c.bill_amount || c.amount) || 0), 0);
       return '<div class="pg"><div class="hd"><div><div class="t">รายงานวางบิลค่าเบี้ยประกัน (รอจ่าย)</div>'
         + '<div class="co">' + esc(co === '-' ? '(ไม่ระบุบริษัท)' : co) + '</div>'
-        + '<div class="sb">' + esc(monLabel) + ' · ' + list.length + ' รายการ</div></div>'
+        + '<div class="sb">' + esc(monLabel) + ' · ' + list.length + ' รายการ</div>'
+        + (list.some(c => c.rep_n) ? '<div class="w" style="font-size:11.5px">⚠ มีรายการพิมพ์ซ้ำ ' + list.filter(c => c.rep_n).length + ' รายการ — ตรวจว่ายังไม่ได้จ่าย</div>' : '') + '</div>'
         + '<div class="pr">พิมพ์วันที่ ' + esc(printed) + '</div></div>'
         + '<table><thead><tr><th>#</th><th>ทะเบียน</th><th>ประเภท</th><th>เลขกรมธรรม์</th><th>คุ้มครอง</th><th>เลขที่ใบวางบิล</th><th>วันที่วางบิล</th><th class="n">จำนวนเงิน</th></tr></thead><tbody>'
-        + list.map((c, i) => '<tr><td>' + (i + 1) + '</td><td><b>' + esc(c.plate || '') + '</b>' + (c.bill_issues ? '<div class="w">⚠ ' + esc(c.bill_issues) + '</div>' : '') + '</td>'
+        + list.map((c, i) => '<tr><td>' + (i + 1) + '</td><td><b>' + esc(c.plate || '') + '</b>' + (c.rep_n ? '<div class="w">' + esc(repMark(c)) + '</div>' : '')
+            + (c.bill_issues ? '<div class="w">⚠ ' + esc(c.bill_issues) + '</div>' : '') + '</td>'
             + '<td>' + esc(typeLabel(c.type)) + '</td><td>' + esc(c.bill_policy_no || c.policy_no || '') + '</td>'
             + '<td>' + payShort(c.start_date) + ' – ' + payShort(c.end_date) + '</td><td>' + esc(c.bill_no || '') + '</td>'
             + '<td>' + esc(payDay(c.bill_date)) + '</td><td class="n">' + baht(c.bill_amount || c.amount) + '</td></tr>').join('')
@@ -2658,6 +2769,7 @@
     w.document.close();
     const go = function(){ setTimeout(function(){ w.focus(); w.print(); }, 400); };
     if(w.document.fonts && w.document.fonts.ready) w.document.fonts.ready.then(go); else w.onload = go;
+    logRep('พิมพ์');
     setTimeout(unstick, 60);
   }
 
