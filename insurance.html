@@ -301,6 +301,18 @@
     .b-done{ background:#F1F1F1; color:#9E9E9E; } .b-done:hover{ background:#E8E8E8; color:#757575; }
     .prow.done{ background:#F7FCF8; }
     .pdone{ font-size:11px; font-weight:500; padding:3px 10px; border-radius:20px; background:#DCF5E3; color:#1B7A3D; }
+    /* รถขายแล้ว / ทำ ม.79 = ปิดเตือน (2026-11-19) — ชิปทึบให้เห็นชัด แถวทั้งแถวเป็นสีเทา */
+    .pret{ display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:3px 10px 3px 8px; border-radius:20px; vertical-align:middle; white-space:nowrap; }
+    .pret svg{ width:12px; height:12px; flex:none; }
+    .pret.sold{ background:#37474F; color:#fff; }
+    .pret.m79{ background:#E65100; color:#fff; }
+    .prow.off{ background:#F4F4F6; border-color:#E2E2E6; }
+    .prow.off .pmain small, .prow.off .pgrid{ opacity:.6; }
+    .poff{ display:flex; align-items:center; gap:7px; margin-top:10px; padding:8px 11px; border-radius:11px;
+           background:#ECEFF1; color:#37474F; font-size:11.5px; }
+    .poff.m79{ background:#FFF3E0; color:#9A3B00; }
+    .b-ret{ background:#ECEFF1; color:#455A64; } .b-ret:hover{ background:#E0E5E8; }
+    .pill.x{ background:#37474F; color:#fff; font-weight:500; }
     .pold{ font-size:11px; color:#B0B0B0; text-decoration:line-through; display:block; }
     .pnew{ font-weight:500; }
     .pwarn{ display:flex; align-items:center; gap:7px; margin-top:10px; padding:8px 11px; border-radius:11px;
@@ -434,6 +446,7 @@
     .pt .stk{ position:sticky; left:0; z-index:1; background:#fff; min-width:118px; box-shadow:2px 0 0 #F0EBF8; }
     .pt th.stk{ z-index:3; background:#F3EEFC; }
     .pt .stk b{ display:block; font-size:13px; } .pt .stk small{ color:#999; font-size:10.5px; }
+    .pt .stk .pret{ margin:3px 0 2px; font-size:10px; padding:2px 8px 2px 6px; } .pt .stk .pret + small{ display:block; }
     .pt tr.pgh td{ background:#FAF7FF; color:#6200EA; font-weight:600; font-size:12.5px; padding:8px 10px; position:sticky; left:0; }
     .pc{ min-width:112px; text-align:right; cursor:pointer; transition:background .15s; }
     .pc:hover{ background:#F8F5FF; }
@@ -985,7 +998,8 @@
       const dayTx = g.days_left < 0 ? ('เลยกำหนด ' + Math.abs(g.days_left) + ' วัน') : ('เหลือ ' + g.days_left + ' วัน');
       const when  = g.same_day ? ('หมดพร้อมกัน ' + g.first_end_label)
                                : ('ทยอยหมด ' + g.first_end_label + ' – ' + g.last_end_label);
-      const pct = g.count ? Math.round(g.renewed / g.count * 100) : 0;
+      const ret = g.retired || 0, need = g.count - ret;   // รถขาย/ม.79 ไม่ต้องต่อ → ไม่นับในหลอดความคืบหน้า
+      const pct = need ? Math.round(g.renewed / need * 100) : 100;
       return '<div class="gcard ' + t + ' type-' + tcode(g.type) + '" onclick="openGroup(\'' + esc(g.group_key) + '\')">'
         + '<div class="gtop"><div class="gt"><b>' + esc(typeLabel(g.type)) + ' · ' + esc(g.month_label) + '</b>'
         + '<small>' + esc(when) + '</small></div>'
@@ -995,7 +1009,8 @@
         + '<span class="pill ' + (g.days_left<=30?'d':(g.days_left<=90?'w':'g')) + '">' + dayTx + '</span>'
         + '<span class="pill">เบี้ย ' + baht(g.premium_total) + ' บาท</span>'
         + (g.done ? '<span class="pill g">ต่อครบแล้ว</span>'
-                  : '<span class="pill">ต่อแล้ว ' + g.renewed + '/' + g.count + '</span>')
+                  : '<span class="pill">ต่อแล้ว ' + g.renewed + '/' + need + '</span>')
+        + (ret ? '<span class="pill x">ขาย/ม.79 ' + ret + ' คัน · ปิดเตือน</span>' : '')
         + '</div>'
         + '<div class="prog"><i style="width:' + pct + '%"></i></div>'
         + '</div>';
@@ -1199,7 +1214,7 @@
 
   function frowHtml(r){
     return '<div class="mrow">'
-      + '<div class="mm"><b>' + esc(r.plate || '(ยังไม่มีทะเบียน)') + '</b>'
+      + '<div class="mm"><b>' + esc(r.plate || '(ยังไม่มีทะเบียน)') + '</b>' + (r.retired ? ' ' + retChip(r) : '')
       + '<small>' + esc([r.brand, r.model].filter(Boolean).join(' ') || 'ไม่ระบุรุ่น')
       + ' · เล่ม ' + esc(r.policy_no) + '</small></div>'
       + '<div class="mt2">คุ้มครองถึง<br>' + esc(r.end_label || r.end_date) + '</div>'
@@ -1467,7 +1482,7 @@
     ['เลขกรมธรรม์', p => p.policy_no || '-', 'nw'],
     ['คุ้มครองถึง', p => p.end_label || p.end_date || '-', 'nw'],
     ['เบี้ย (บาท)', p => baht(p.premium_total), 'money'],
-    ['สถานะ',       p => p.status === 'renewed' ? 'ต่อแล้ว' : 'ยังไม่ต่อ', 'nw']
+    ['สถานะ',       p => stTx(p), 'nw']
   ];
   const NOFILE_COLS = [
     ['ลำดับ',       (p,i) => i + 1, 'num'],
@@ -1525,7 +1540,7 @@
     const sp = sheetSpec();
     const rows = sp.rows || [];
     const cols = sp.cols;
-    const left = rows.filter(p => p.status !== 'renewed').length;
+    const left = rows.filter(isPending).length, renewedN = rows.filter(p => p.status === 'renewed' && !p.retired).length, retN = rows.length - left - renewedN;
     const sum  = rows.reduce((a, p) => a + (Number(p.premium_total) || 0), 0);
     const today = new Date().toLocaleDateString('th-TH', { day:'numeric', month:'long', year:'numeric' });
 
@@ -1538,7 +1553,8 @@
       ? '<div class="sm">'
         + '<div><b>' + rows.length + '</b><span>ฉบับทั้งหมด</span></div>'
         + '<div><b>' + left + '</b><span>ยังไม่ต่อ</span></div>'
-        + '<div><b>' + (rows.length - left) + '</b><span>ต่อแล้ว</span></div>'
+        + '<div><b>' + renewedN + '</b><span>ต่อแล้ว</span></div>'
+        + (retN ? '<div><b>' + retN + '</b><span>ขาย/ม.79 (ปิดเตือน)</span></div>' : '')
         + '<div><b>' + baht(sum) + '</b><span>เบี้ยรวม (บาท)</span></div>'
         + '</div>'
       : '<div class="sm"><div><b>' + rows.length + '</b><span>รายการทั้งหมด</span></div></div>';
@@ -1753,7 +1769,8 @@
     document.getElementById('sheet').classList.add('open');
     api('ins_group', { group_key: key }).then(r=>{
       const g = r.group || {};
-      CUR_G = g; CUR_ROWS = r.rows || [];
+      CUR_G = g; CUR_ROWS = (r.rows || []).slice().sort((a, b) => (a.retired ? 1 : 0) - (b.retired ? 1 : 0));   // รถขาย/ม.79 ไว้ท้ายกลุ่ม
+      r.rows = CUR_ROWS;
       document.getElementById('sheetTitle').textContent =
         typeLabel(g.type || '') + ' · ' + (g.month_label || '') + ' (' + (r.count || 0) + ' ฉบับ)';
       document.getElementById('sheetBody').innerHTML = (r.rows || []).map(rowHtml).join('')
@@ -1778,10 +1795,36 @@
     return 'var(--ok)';
   }
 
+  /* รถไม่ใช้แล้ว: ขายแล้ว / ทำ ม.79 → ไม่เตือนต่ออายุ (edge ins_retire, ทำกับทุกกรมธรรม์ของรถคันนั้น) */
+  const RET_ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-9.33-5M6 8c0 7-3 9-3 9h13"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
+  const retCls = p => p.retired === 'ทำ ม.79' ? 'm79' : 'sold';
+  function retChip(p){ return p.retired ? '<span class="pret ' + retCls(p) + '">' + RET_ICO + esc(p.retired) + ' · ปิดเตือน</span>' : ''; }
+  const stTx = p => p.retired ? p.retired + ' (ปิดเตือน)' : (p.status === 'renewed' ? 'ต่อแล้ว' : 'ยังไม่ต่อ');
+  const isPending = p => p.status !== 'renewed' && !p.retired;
+  async function markRetire(id, plate, cur){
+    if(!IS_DEV) return;
+    const f = await Swal.fire({
+      title: plate || 'รถคันนี้',
+      html: '<div style="font-size:13px;color:#666;font-weight:300">ปิดการเตือนต่ออายุของ<b>ทุกกรมธรรม์</b>ของรถคันนี้ (ประกันภัย + พ.ร.บ.)<br>ข้อมูลกรมธรรม์ยังเก็บไว้ตามเดิม</div>',
+      input: 'radio', inputValue: cur || 'ขายแล้ว',
+      inputOptions: Object.assign({ 'ขายแล้ว':'ขายแล้ว', 'ทำ ม.79':'ทำ ม.79' }, cur ? { '':'ยังใช้งาน (เปิดเตือนอีกครั้ง)' } : {}),
+      showCancelButton: true, confirmButtonText: 'บันทึก', cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#37474F', cancelButtonColor: '#9E9E9E'
+    });
+    if(!f.isConfirmed || (f.value || '') === (cur || '')) return;
+    Swal.fire({ title:'กำลังบันทึก…', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+    const r = await post({ action:'ins_retire', id:id, retired:f.value || '' });
+    if(r.status === 'success'){
+      Swal.fire({ title: f.value ? 'ปิดเตือนแล้ว' : 'เปิดเตือนแล้ว', text: (r.ids || []).length + ' กรมธรรม์', icon:'success', timer:1500, showConfirmButton:false });
+      refresh();
+    } else Swal.fire('บันทึกไม่สำเร็จ', r.message || 'ลองใหม่อีกครั้ง', 'error');
+  }
+
   function rowHtml(p){
-    const done = p.status === 'renewed';
-    const col = done ? 'var(--ok)' : dayColor(p.days_left);
-    const dayTx = p.days_left < 0 ? ('เลยกำหนด ' + Math.abs(p.days_left) + ' วัน') : ('เหลือ ' + p.days_left + ' วัน');
+    const off = !!p.retired;
+    const done = p.status === 'renewed' && !off;
+    const col = off ? '#9E9E9E' : (done ? 'var(--ok)' : dayColor(p.days_left));
+    const dayTx = off ? 'ไม่ต้องต่ออายุ' : (p.days_left < 0 ? ('เลยกำหนด ' + Math.abs(p.days_left) + ' วัน') : ('เหลือ ' + p.days_left + ' วัน'));
 
     const f = (label, val) => val ? ('<div class="pf"><i>' + label + '</i><b>' + esc(val) + '</b></div>') : '';
 
@@ -1797,12 +1840,12 @@
       : '<u style="color:' + col + '">' + esc(p.end_label) + '</u>'
         + '<i style="font-style:normal;color:' + col + ';opacity:.85">' + dayTx + '</i>';
 
-    return '<div class="prow' + (done ? ' done' : '') + '">'
+    return '<div class="prow' + (off ? ' off' : (done ? ' done' : '')) + '">'
       + '<div class="ptop">'
         + '<span class="pdot" style="background:' + col + ';margin-top:5px"></span>'
         + '<div class="pmain"><b>' + esc(p.plate || '(ยังไม่มีทะเบียน)')
         + ' <span class="tbadge t-' + tcode(p.type) + '">' + esc(typeLabel(p.type)) + '</span>'
-        + (done ? ' <span class="pdone">ต่ออายุแล้ว</span>' : '') + '</b>'
+        + (off ? ' ' + retChip(p) : (done ? ' <span class="pdone">ต่ออายุแล้ว</span>' : '')) + '</b>'
         + '<small>' + esc([p.brand, p.model].filter(Boolean).join(' ') || 'ไม่ระบุรุ่น')
         + (p.year ? (' · ปี ' + esc(p.year)) : '') + '</small></div>'
         + '<div class="pend">' + rightCol + '</div>'
@@ -1820,6 +1863,11 @@
         + (done && p.renewed_end_date ? f('คุ้มครองใหม่ถึง', beDate(p.renewed_end_date)) : '')
       + '</div>'
 
+      + (off
+          ? '<div class="poff ' + retCls(p) + '">' + RET_ICO.replace('<svg ', '<svg width="15" height="15" ')
+            + '<span><b>' + esc(p.retired) + '</b> · ระบบไม่เตือนต่ออายุคันนี้แล้ว'
+            + (p.retired_at ? ' (ตั้งเมื่อ ' + esc(beDate(p.retired_at)) + ')' : '') + '</span></div>'
+          : '')
       + (done && !p.renewed_end_date
           ? '<div class="pwarn">' + ICO.warn
             + '<span>แนบไฟล์แล้วแต่ยังไม่ได้ระบุวันคุ้มครองใหม่ ระบบจึงยังนับวันจากเล่มเดิมอยู่</span></div>'
@@ -1837,11 +1885,16 @@
             ? '<a class="b-view" href="' + esc(p.receipt_url) + '" target="_blank" rel="noopener">'
               + ICO.receipt + ' ใบเสร็จค่าเบี้ย</a>'
             : '')
-        + (done
+        + (off ? ''
+          : done
             ? '<button class="' + (p.renewed_end_date ? 'b-done' : 'b-ok') + '" onclick="markRenew(\'' + esc(p.id) + '\',\'' + esc(p.plate) + '\')">'
               + ICO.check + ' ' + (p.renewed_end_date ? 'แก้ไขข้อมูลต่ออายุ' : 'ระบุวันคุ้มครองใหม่') + '</button>'
             : '<button class="b-ok" onclick="markRenew(\'' + esc(p.id) + '\',\'' + esc(p.plate) + '\')">'
               + ICO.check + ' บันทึกว่าต่อแล้ว</button>')
+        + (IS_DEV
+            ? '<button class="b-ret" onclick="markRetire(\'' + esc(p.id) + '\',\'' + esc(p.plate) + '\',\'' + esc(p.retired || '') + '\')">'
+              + RET_ICO.replace('<svg ', '<svg width="14" height="14" ') + ' ' + (off ? 'เปลี่ยนสถานะรถ' : 'รถขาย / ม.79') + '</button>'
+            : '')
       + '</div>'
       + '</div>';
   }
@@ -2112,7 +2165,7 @@
     ['วันสิ้นสุด',    p => p.end_date],
     ['เหลือ (วัน)',   p => p.days_left],
     ['เบี้ยรวม',      p => p.premium_total],
-    ['สถานะ',         p => p.status === 'renewed' ? 'ต่อแล้ว' : 'ยังไม่ต่อ'],
+    ['สถานะ',         p => stTx(p)],
     ['เล่มใหม่',      p => p.renewed_policy_no],
     ['คุ้มครองใหม่ถึง', p => p.renewed_end_date]
   ];
@@ -2126,7 +2179,7 @@
     ['คุ้มครองถึง',  p => beDate(p.end_date) || p.end_date || '-', 'nw'],
     ['เหลือ',        p => (p.days_left < 0 ? ('เลย ' + Math.abs(p.days_left)) : p.days_left) + ' วัน', 'nw'],
     ['เบี้ย (บาท)',  p => baht(p.premium_total), 'money'],
-    ['สถานะ',        p => p.status === 'renewed' ? 'ต่อแล้ว' : 'ยังไม่ต่อ', 'nw']
+    ['สถานะ',        p => stTx(p), 'nw']
   ];
 
   /** ใบ A4 แนวนอน — คอลัมน์เยอะเกินกว่าจะใส่แนวตั้งแล้วยังอ่านรู้เรื่อง */
@@ -2134,7 +2187,7 @@
     const label = (TYPE ? typeLabel(TYPE) : 'ทุกประเภท')
                 + ' · ' + (REP_CO ? coName(REP_CO) : 'ทุกบริษัท');
     const today = new Date().toLocaleDateString('th-TH', { day:'numeric', month:'long', year:'numeric' });
-    const left = rows.filter(p => p.status !== 'renewed').length;
+    const left = rows.filter(isPending).length, renewedN = rows.filter(p => p.status === 'renewed' && !p.retired).length, retN = rows.length - left - renewedN;
     const total = rows.reduce((a, p) => a + (Number(p.premium_total) || 0), 0);
     const th = REP_PRINT.map(c => '<th>' + c[0] + '</th>').join('');
     const tb = rows.map((p, i) => '<tr' + (p.status === 'renewed' ? ' class="ok"' : '') + '>'
@@ -2148,7 +2201,8 @@
       + '<div class="sm">'
       +   '<div><b>' + rows.length + '</b><span>ฉบับทั้งหมด</span></div>'
       +   '<div><b>' + left + '</b><span>ยังไม่ต่อ</span></div>'
-      +   '<div><b>' + (rows.length - left) + '</b><span>ต่อแล้ว</span></div>'
+      +   '<div><b>' + renewedN + '</b><span>ต่อแล้ว</span></div>'
+      +   (retN ? '<div><b>' + retN + '</b><span>ขาย/ม.79 (ปิดเตือน)</span></div>' : '')
       +   '<div><b>' + baht(total) + '</b><span>เบี้ยรวม (บาท)</span></div>'
       + '</div>'
       + '<table><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table>'
@@ -2201,8 +2255,8 @@
     if(Q){ const q = Q.toLowerCase(); return { label:'ค้นหา ' + Q, test: p => matches(p, q) }; }
     // จำนวนต้องตรงกับตัวเลขบนการ์ดสรุปและการ์ด LINE ซึ่งนับเฉพาะฉบับที่ยังไม่ต่อ
     if(VIEW === 'soon') return { label:(ROUND ? 'รอบ ' + ROUND.label : 'ใกล้หมด') + ' · ยังไม่ต่อ',
-      test: p => p.status !== 'renewed' && !!p.end_date && (ROUND ? String(p.end_date).slice(0, 7) <= ROUND.last : p.days_left <= 90) };
-    if(VIEW === 'pending') return { label:'กลุ่มที่ต้องต่อ · ยังไม่ต่อ', test: p => p.status !== 'renewed' && !!p.end_date };
+      test: p => isPending(p) && !!p.end_date && (ROUND ? String(p.end_date).slice(0, 7) <= ROUND.last : p.days_left <= 90) };
+    if(VIEW === 'pending') return { label:'กลุ่มที่ต้องต่อ · ยังไม่ต่อ', test: p => isPending(p) && !!p.end_date };
     return { label:'', test: () => true };
   }
 
@@ -2407,6 +2461,7 @@
       const v = by[c.vkey] || (by[c.vkey] = { vkey:c.vkey, plate:'', insured:'', brand:'', model:'', cells:{} });
       v.cells[c.type + '|' + c.year_be] = c;
       if(!v.plate || c.kind === 'cur') { v.plate = c.plate || v.plate; v.insured = c.insured || v.insured; v.brand = c.brand || v.brand; v.model = c.model || v.model; }
+      if(c.retired) v.retired = c.retired;   // รถขาย/ม.79 → ชิปข้างทะเบียน
     });
     return Object.values(by);
   }
@@ -2492,7 +2547,7 @@
     vs.forEach(v => {
       const co = coName(v.insured);
       if(co !== lastCo){ lastCo = co; h += '<tr class="pgh"><td colspan="' + ncol + '">' + esc(co === '-' ? '(ไม่ระบุบริษัท)' : co) + ' <small class="pghn">' + coN[co] + ' คัน</small></td></tr>'; }
-      h += '<tr><td class="stk"><b>' + esc(v.plate || '(ไม่มีทะเบียน)') + '</b><small>' + esc([v.brand, v.model].filter(Boolean).join(' ')) + '</small></td>';
+      h += '<tr><td class="stk"><b>' + esc(v.plate || '(ไม่มีทะเบียน)') + '</b>' + (v.retired ? retChip(v) : '') + '<small>' + esc([v.brand, v.model].filter(Boolean).join(' ')) + '</small></td>';
       ys.forEach(y => PAY_TYPES.forEach((t, i) => {
         const c = v.cells[t[0] + '|' + y], yc = i ? '' : ' y';
         if(!c){ h += '<td class="pc pnone' + yc + '">–</td>'; return; }
