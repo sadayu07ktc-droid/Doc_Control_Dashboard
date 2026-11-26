@@ -720,7 +720,8 @@
   function typeLabel(t){ return TYPE_LABEL[t] || t; }
   /** ชื่อบริษัทแบบสั้น — ตัด 'บริษัท' กับ 'จำกัด' ออก ไม่งั้นคอลัมน์กินที่เกินไป */
   function coName(v){
-    return String(v || '').replace(/^บริษัท\s*/, '').replace(/\s*จำกัด\s*$/, '').trim() || '-';
+    // "บริษัท X จำกัด (สาขาพังงา)" → "X (สาขาพังงา)" (เดิมตัดเฉพาะ จำกัด ท้ายสุด สาขาเลยค้างคำว่า จำกัด)
+    return String(v || '').replace(/^บริษัท\s*/, '').replace(/\s*จำกัด\s*(?=\(|$)/, ' ').replace(/\s+/g, ' ').trim() || '-';
   }
   function baht(n){ return Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:2, maximumFractionDigits:2}); }
   function api(action, params){
@@ -2335,7 +2336,168 @@
     return { label:'', test: () => true };
   }
 
+  /* ---------- ออกรายงานหน้าหลัก = popup 3 ขั้นแบบเดียวกับหน้าการชำระเงิน (ผู้ใช้ขอ 2026-11-26) ----------
+     1 เลือกข้อมูล (ปีหมดอายุ / เดือนหมดอายุ / บริษัท / ประเภท / สถานะ / ตัวกรองบนจอ) → 2 รายงาน (รายการ / แยกบริษัท / สรุป) → 3 Excel / PDF / JPEG
+     ค่าเริ่ม = ตัวกรองบนจอ · Set ว่าง = ทั้งหมด · วาดหน้า A4 ด้วย payReportPages ตัวเดียวกัน */
+  const INS_REP_CLR = { pend:['#8a5a0b', '#fef0d9'], ren:['#127a2e', '#d4f0df'], off:['#5f5e5a', '#efefef'] };
+  const INS_ST_TX = { pend:'ยังไม่ต่อ', ren:'ต่อแล้ว', off:'ปิดเตือน' };
+  const IR_TYPES = [['สมัครใจ', 'ประกันภัย'], ['พรบ.', 'พ.ร.บ.']];
+  const IR_KINDS = [
+    ['list', 'รายการรายคัน', 'ตารางเดียว เรียงตามบริษัท / วันหมดอายุ', '#6200ea'],
+    ['byco', 'รายคัน แยกบริษัท', 'ขึ้นหน้าใหม่ทุกบริษัท มียอดรวมย่อย · Excel แยกชีตละบริษัท', '#0f766e'],
+    ['sum', 'สรุปตามบริษัท', 'บริษัท × ประเภท: จำนวนและเบี้ย ยังไม่ต่อ / ต่อแล้ว / ปิดเตือน', '#d97706']];
+  let IR = null, IR_KIND = 'list', IR_OPT = { years:[], cos:[] };
+  const irSt = p => offTx(p) ? 'off' : (p.status === 'renewed' ? 'ren' : 'pend');
+  const irYear = p => p.end_date ? +String(p.end_date).slice(0, 4) + 543 : 0;
+  function irDefault(){
+    const f = repFilterNow();
+    return { years:new Set(), months:new Set(), cos:new Set(), types:new Set(TYPE ? [TYPE] : []), sts:new Set(), q:!!Q, v:!Q && !!f.label };
+  }
+  function irIsScreen(R){ const D = irDefault(); return rpSame(R.years, D.years) && rpSame(R.months, D.months) && rpSame(R.cos, D.cos) && rpSame(R.types, D.types) && rpSame(R.sts, D.sts) && R.q === D.q && R.v === D.v; }
+  /** แถวตามที่เลือกใน popup · เรียงบริษัท → วันหมดอายุ → ทะเบียน */
+  function irRows(R, skip){
+    const vf = R.v ? repFilterNow() : null, qq = R.q && Q ? Q.toLowerCase() : '';
+    return ALL_ROWS.filter(p => (!R.years.size || R.years.has(irYear(p)))
+        && (skip === 'months' || !R.months.size || R.months.has(+String(p.end_date || '').slice(5, 7)))
+        && (!R.cos.size || R.cos.has(coName(p.insured)))
+        && (!R.types.size || R.types.has(p.type))
+        && (skip === 'sts' || !R.sts.size || R.sts.has(irSt(p)))
+        && (!qq || matches(p, qq)) && (!vf || vf.test(p)))
+      .sort((a, b) => coName(a.insured).localeCompare(coName(b.insured), 'th') || String(a.end_date || '').localeCompare(String(b.end_date || '')) || String(a.plate || '').localeCompare(String(b.plate || ''), 'th'));
+  }
+  function irLabel(R){
+    const cos = [...R.cos], ys = [...R.years].sort();
+    return [ys.length ? 'หมดอายุปี ' + ys.join(', ') : 'ทุกปี',
+      R.months.size ? 'เดือน ' + payRepMonths(R.months) : '',
+      cos.length ? (cos.length <= 2 ? cos.join(', ') : cos.length + ' บริษัท') : 'ทุกบริษัท',
+      R.types.size === 1 ? IR_TYPES.find(t => R.types.has(t[0]))[1] : '',
+      R.sts.size ? [...R.sts].map(s => INS_ST_TX[s]).join(', ') : '',
+      R.q ? 'ค้นหา "' + Q.slice(0, 40) + '"' : '', R.v ? repFilterNow().label : ''].filter(Boolean).join(' · ');
+  }
   function exportReport(){
+    if(!ALL_ROWS.length){ Swal.fire('ไม่มีข้อมูล','ยังไม่มีกรมธรรม์ให้ออกรายงาน','info'); return; }
+    IR = irDefault();
+    IR_OPT.years = Array.from(new Set(ALL_ROWS.map(irYear).filter(Boolean))).sort();
+    IR_OPT.cos = Array.from(new Set(ALL_ROWS.map(p => coName(p.insured)))).sort((a, b) => a.localeCompare(b, 'th'));
+    Swal.fire({ width:600, showConfirmButton:false, showCloseButton:true, customClass:{ popup:'rp-pop' },
+      html:'<div id="rpBox" style="text-align:left"></div>', didOpen:irDraw, didClose:() => setTimeout(unstick, 60) });
+  }
+  function irTog(f, i){
+    const all = { years:IR_OPT.years, months:[1,2,3,4,5,6,7,8,9,10,11,12], cos:IR_OPT.cos, types:IR_TYPES.map(t => t[0]), sts:['pend', 'ren', 'off'] }[f];
+    const v = all[i], s = IR[f];
+    if(s.has(v)) s.delete(v); else s.add(v);
+    if(s.size === all.length) s.clear();   // เลือกครบทุกตัว = ทั้งหมด
+    irDraw();
+  }
+  function irAll(f){ IR[f].clear(); irDraw(); }
+  function irDraw(){
+    const box = document.getElementById('rpBox'); if(!box || !IR) return;
+    const R = IR, e = esc, n = irRows(R).length;
+    const chip = (on, label, click, dis, dot) => '<button type="button" class="rp-chip' + (on ? ' on' : '') + '"' + (dis ? ' disabled' : '') + ' onclick="' + click + '">'
+      + (dot ? '<i style="background:' + dot + '"></i>' : '') + label + '</button>';
+    const row = (lab, inner) => '<div class="rp-row"><span class="rp-lab">' + lab + '</span><div class="rp-chips">' + inner + '</div></div>';
+    const mHas = new Set(irRows(R, 'months').map(p => +String(p.end_date || '').slice(5, 7)));
+    const stN = { pend:0, ren:0, off:0 }; irRows(R, 'sts').forEach(p => stN[irSt(p)]++);
+    const screen = irIsScreen(R), vf = repFilterNow();
+    box.innerHTML =
+      '<div class="rp-top"><span class="rp-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d0099" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.2-8 11-4.6-1.8-8-6-8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></span>'
+      + '<div><b>ออกรายงานประกันภัยรถ</b><small>' + e(irLabel(R)) + ' · <b>' + n + ' ฉบับ</b>' + (screen ? ' · ตรงกับตัวกรองบนจอ' : '')
+      + (screen ? '' : ' · <a href="javascript:void(0)" onclick="IR=irDefault();irDraw()">กลับไปตามจอ</a>') + '</small></div></div>'
+      + '<div class="rp-g">1 · เลือกข้อมูล</div>'
+      + row('ปีที่หมดอายุ', chip(!R.years.size, 'ทุกปี', "irAll('years')") + IR_OPT.years.map((y, i) => chip(R.years.has(y), y, "irTog('years'," + i + ")")).join(''))
+      + row('เดือนที่หมดอายุ', '<div class="rp-mon">' + chip(!R.months.size, 'ทั้งปี', "irAll('months')")
+        + TH_M.map((m, i) => chip(R.months.has(i + 1), m, "irTog('months'," + i + ")", !mHas.has(i + 1) && !R.months.has(i + 1))).join('') + '</div>')
+      + row('บริษัท', chip(!R.cos.size, 'ทุกบริษัท', "irAll('cos')")
+        + IR_OPT.cos.map((c, i) => chip(R.cos.has(c), c === '-' ? '(ไม่ระบุบริษัท)' : e(c), "irTog('cos'," + i + ")", false, RP_DOT[i % RP_DOT.length])).join(''))
+      + row('ประเภท', chip(!R.types.size, 'ทั้งหมด', "irAll('types')") + IR_TYPES.map((t, i) => chip(R.types.has(t[0]), t[1], "irTog('types'," + i + ")")).join(''))
+      + row('สถานะ', chip(!R.sts.size, 'ทั้งหมด', "irAll('sts')")
+        + ['pend', 'ren', 'off'].map((s, i) => chip(R.sts.has(s), INS_ST_TX[s] + ' <em>' + stN[s] + '</em>', "irTog('sts'," + i + ")", false, INS_REP_CLR[s][0])).join(''))
+      + (Q ? row('คำค้นบนจอ', chip(R.q, 'ใช้ "' + e(Q.slice(0, 30)) + '"', 'IR.q=!IR.q;irDraw()')) : '')
+      + (!Q && vf.label ? row('ตัวกรองบนจอ', chip(R.v, e(vf.label), 'IR.v=!IR.v;irDraw()')) : '')
+      + '<div class="rp-g">2 · เลือกรายงาน</div>'
+      + IR_KINDS.map(k => '<button type="button" class="rp-kind' + (IR_KIND === k[0] ? ' on' : '') + '" style="--k:' + k[3] + '" onclick="IR_KIND=\'' + k[0] + '\';irDraw()">'
+        + '<span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + RP_IC[k[0]] + '</svg></span>'
+        + '<span class="tx"><b>' + k[1] + '</b><small>' + k[2] + '</small></span><span class="rd"></span></button>').join('')
+      + '<div class="rp-g">3 · เลือกรูปแบบไฟล์' + (n ? '' : ' <span style="color:#a32d2d;font-weight:500">— ไม่มีข้อมูลตามที่เลือก</span>') + '</div>'
+      + '<div class="rp-fmt">'
+      + [['xlsx', '#1d6f42', '#e3f1e8', 'XLS', 'Excel', 'กรอง/เรียงต่อได้'], ['pdf', '#b91c1c', '#fdeaea', 'PDF', 'PDF', 'A4 พร้อมพิมพ์'], ['jpg', '#0f766e', '#e6f4f1', 'JPG', 'JPEG', 'ภาพเดียว ส่งไลน์']]
+        .map(f => '<button type="button" class="pay-rep-opt" onclick="irGo(\'' + f[0] + '\',this)"' + (n ? '' : ' disabled') + '>'
+          + '<span class="ic" style="background:' + f[2] + ';color:' + f[1] + '">' + f[3] + '</span><span><b>' + f[4] + '</b><small>' + f[5] + '</small></span></button>').join('')
+      + '</div>';
+  }
+  async function irGo(kind, b){
+    if(b.disabled || !IR) return;
+    const box = document.getElementById('rpBox'), all = box ? box.querySelectorAll('button') : [b], old = b.innerHTML;
+    all.forEach(x => x.disabled = true);
+    b.querySelector('small').textContent = 'กำลังสร้าง…';
+    try {
+      const S = irSpec(IR, IR_KIND);
+      if(!S.n) throw new Error('ไม่มีรายการตามที่เลือก');
+      if(kind === 'xlsx') await payRepXlsx(S); else await payReportImage(S, kind);
+      Swal.close();
+    } catch(e){
+      toast('สร้างไฟล์ไม่สำเร็จ: ' + (e.message || e), true);
+      b.innerHTML = old; irDraw();
+    }
+  }
+  const IR_PCOLS = [{ h:'บริษัท', w:0 }, { h:'ทะเบียน', w:86 }, { h:'ประเภท', w:64, a:'center' }, { h:'ยี่ห้อ / รุ่น', w:150 }, { h:'เลขกรมธรรม์', w:128 },
+    { h:'คุ้มครองถึง', w:88, a:'center' }, { h:'เหลือ', w:66, a:'right' }, { h:'เบี้ย (บาท)', w:92, a:'right' }, { h:'สถานะ', w:118, a:'center' }];
+  const irPRow = p => [coName(p.insured), p.plate || '-', typeLabel(p.type), [p.brand, p.model].filter(Boolean).join(' ') || '-', p.policy_no || '-',
+    beDate(p.end_date) || '-', offTx(p) || p.status === 'renewed' ? '–' : (p.days_left < 0 ? 'เลย ' + Math.abs(p.days_left) : p.days_left) + ' วัน',
+    Number(p.premium_total) || 0, { st:irSt(p), t:offTx(p) || INS_ST_TX[irSt(p)] }];
+  const IR_XCOLS = REP_COLS.map(c => [c[0], { 'ปีรถ':'num', 'เหลือ (วัน)':'num', 'เบี้ยรวม':'money' }[c[0]] || '']);
+  const irXRow = p => REP_COLS.map(c => c[0] === 'บริษัท' ? coName(p.insured) : c[0] === 'เบี้ยรวม' ? Number(p.premium_total) || 0 : c[1](p));
+  /** spec เดียวกับรายงานการชำระ → ใช้ payRepXlsx / payReportImage ได้เลย */
+  function irSpec(R, kind){
+    const list = irRows(R), sum = a => Math.round(a.reduce((s, p) => s + (Number(p.premium_total) || 0), 0) * 100) / 100;
+    const cnt = st => { const a = list.filter(p => irSt(p) === st); return [a.length, sum(a)]; };
+    const S = { kind, n:list.length, unit:'ฉบับ', label:'VEHICLE INSURANCE REPORT · DOC CONTROL', sub:irLabel(R) + ' · ' + list.length + ' ฉบับ',
+      kpis:[['กรมธรรม์ทั้งหมด', list.length, sum(list), '#3d0099'], ['ยังไม่ต่อ'].concat(cnt('pend'), INS_REP_CLR.pend[0]),
+            ['ต่อแล้ว'].concat(cnt('ren'), INS_REP_CLR.ren[0]), ['ปิดเตือน (ขาย / ม.79 / ไม่ทำประกัน)'].concat(cnt('off'), INS_REP_CLR.off[0])],
+      status:{ col:REP_COLS.findIndex(c => c[0] === 'สถานะ'), map:{ 'ต่อแล้ว':['127A2E', 'D4F0DF'], 'ยังไม่ต่อ':['8A5A0B', 'FEF0D9'] } } };
+    const byCo = []; list.forEach(p => { const k = coName(p.insured).replace(/^-$/, '(ไม่ระบุบริษัท)'); let g = byCo[byCo.length - 1]; if(!g || g.co !== k) byCo.push(g = { co:k, items:[] }); g.items.push(p); });
+    const totRow = (label, items, len, at) => { const r = new Array(len).fill(''); r[0] = label; r[at] = sum(items); r._tot = 1; return r; };
+    const XN = REP_COLS.length, XA = REP_COLS.findIndex(c => c[0] === 'เบี้ยรวม');
+    if(kind === 'sum'){
+      S.title = 'สรุปประกันภัยรถตามบริษัท'; S.file = 'สรุปประกันภัยรถ';
+      const line = (label, type, items, tot) => { const r = [label, type, { n:items.length }, sum(items)];
+        ['pend', 'ren', 'off'].forEach(st => { const a = items.filter(p => irSt(p) === st); r.push({ n:a.length }, sum(a)); }); if(tot) r._tot = 1; return r; };
+      const rows = [];
+      byCo.forEach(g => {
+        const ts = IR_TYPES.filter(t => g.items.some(p => p.type === t[0]));
+        ts.forEach((t, i) => rows.push(line(i ? '' : g.co, t[1], g.items.filter(p => p.type === t[0]))));
+        if(ts.length > 1){ const r = line('', 'รวมบริษัท', g.items); r._sub = 1; rows.push(r); }
+      });
+      rows.push(line('รวมทั้งหมด ' + byCo.length + ' บริษัท', '', list, true));
+      S.cols = [{ h:'บริษัท', w:0 }, { h:'ประเภท', w:96 }, { h:'ฉบับ', w:52, a:'right' }, { h:'เบี้ยรวม (บาท)', w:104, a:'right' },
+        { h:'ยังไม่ต่อ', w:62, a:'right' }, { h:'เบี้ยยังไม่ต่อ', w:100, a:'right' }, { h:'ต่อแล้ว', w:58, a:'right' }, { h:'เบี้ยต่อแล้ว', w:100, a:'right' },
+        { h:'ปิดเตือน', w:62, a:'right' }, { h:'เบี้ยปิดเตือน', w:100, a:'right' }];
+      S.groups = [{ rows }];
+      S.xcols = [['บริษัท', ''], ['ประเภท', ''], ['ฉบับ', 'num'], ['เบี้ยรวม (บาท)', 'money'], ['ยังไม่ต่อ (ฉบับ)', 'num'], ['ยังไม่ต่อ (บาท)', 'money'],
+        ['ต่อแล้ว (ฉบับ)', 'num'], ['ต่อแล้ว (บาท)', 'money'], ['ปิดเตือน (ฉบับ)', 'num'], ['ปิดเตือน (บาท)', 'money']];
+      const xr = r => { const o = r.map(v => v && v.n != null ? v.n : v); if(r._tot || r._sub) o._tot = 1; return o; };
+      S.sheets = [{ sheet:'สรุปตามบริษัท', rows:rows.map(xr) }];
+      S.status = null;
+    } else if(kind === 'byco'){
+      S.title = 'รายงานประกันภัยรถ · แยกบริษัท'; S.file = 'รายงานประกันภัยรถ_แยกบริษัท';
+      S.cols = IR_PCOLS;
+      S.groups = byCo.map(g => ({ title:g.co + ' · ' + g.items.length + ' ฉบับ · ' + baht(sum(g.items)) + ' บาท',
+        rows:g.items.map(irPRow).concat([totRow('รวม ' + g.co + ' ' + g.items.length + ' ฉบับ', g.items, 9, 7)]) }));
+      S.groups[S.groups.length - 1].rows.push(totRow('รวมทั้งหมด ' + list.length + ' ฉบับ (' + byCo.length + ' บริษัท)', list, 9, 7));
+      S.xcols = IR_XCOLS;
+      S.sheets = byCo.map(g => ({ sheet:g.co, title:'รายงานประกันภัยรถ · ' + g.co, sub:irLabel(R) + ' · ' + g.items.length + ' ฉบับ',
+        rows:g.items.map(irXRow).concat([totRow('รวม ' + g.items.length + ' ฉบับ', g.items, XN, XA)]) }));
+    } else {
+      S.title = 'รายงานประกันภัยรถ'; S.file = 'รายงานประกันภัยรถ';
+      S.cols = IR_PCOLS;
+      S.groups = [{ rows:list.map(irPRow).concat([totRow('รวม ' + list.length + ' ฉบับ', list, 9, 7)]) }];
+      S.xcols = IR_XCOLS;
+      S.sheets = [{ sheet:'รายงานประกันภัยรถ', rows:list.map(irXRow).concat([totRow('รวม ' + list.length + ' ฉบับ', list, XN, XA)]) }];
+    }
+    return S;
+  }
+
+  function exportReportOld(){
     REP_FILTER = repFilterNow();
     const fl = REP_FILTER.label ? 'ตามตัวกรอง: ' + esc(REP_FILTER.label) + ' · ' : '';
     Swal.fire({ title:'กำลังดึงข้อมูล…', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
@@ -3196,13 +3358,13 @@
       + '<div style="display:flex;align-items:center;gap:12px;position:relative">'
       + '<div style="width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,#ffd166,#f0a500);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 14px -6px rgba(240,165,0,.9)">'
       + '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d0099" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.2-8 11-4.6-1.8-8-6-8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></div>'
-      + '<div><div style="font-size:10.5px;font-weight:600;letter-spacing:2px;color:#d9c8ff">INSURANCE PAYMENT REPORT · DOC CONTROL</div>'
+      + '<div><div style="font-size:10.5px;font-weight:600;letter-spacing:2px;color:#d9c8ff">' + e(S.label || 'INSURANCE PAYMENT REPORT · DOC CONTROL') + '</div>'
       + '<div style="font-size:22px;font-weight:700;margin-top:1px">' + e(S.title) + '</div></div></div>'
       + '<div style="display:flex;gap:18px;margin-top:8px;font-size:11.5px;color:#d9c8ff;position:relative"><span>' + e(S.sub) + (S.estNote ? ' · ' + e(S.estNote) : '') + '</span>'
       + '<span style="flex:none">สร้างเมื่อ <b style="color:#fff">' + made + '</b></span></div></div>';
     const kpi = k => '<div style="flex:1;background:#faf7ff;border:1px solid #e6dcfa;border-radius:10px;padding:7px 12px;border-top:3px solid ' + k[3] + '">'
       + '<div style="font-size:10.5px;color:#6b6585">' + k[0] + '</div>'
-      + '<div style="font-size:18px;font-weight:700;color:' + k[3] + '">' + k[1] + ' <span style="font-size:11px;font-weight:500">รายการ</span></div>'
+      + '<div style="font-size:18px;font-weight:700;color:' + k[3] + '">' + k[1] + ' <span style="font-size:11px;font-weight:500">' + (S.unit || 'รายการ') + '</span></div>'
       + '<div style="font-size:10.5px;color:#4b4566">' + baht(k[2]) + ' บาท</div></div>';
     const kpis = '<div style="display:flex;gap:10px;margin-top:10px">' + S.kpis.map(kpi).join('') + '</div>';
     const colg = '<colgroup>' + S.cols.map(k => '<col' + (k.w ? ' style="width:' + k.w + 'px"' : '') + '>').join('') + '</colgroup>';
@@ -3213,7 +3375,7 @@
       if(typeof v === 'number') return v === 0 && S.kind === 'sum' ? '<span style="color:#c4bdd6">–</span>' : baht(v);
       if(v.n != null) return v.n ? v.n.toLocaleString('en-US') : '<span style="color:#c4bdd6">–</span>';
       if(v.est != null) return '<span style="color:#8a5a0b">≈ ' + baht(v.est) + '</span>';
-      if(v.st){ const cc = PAY_REP_CLR[v.st]; return '<span style="display:inline-block;line-height:16px;vertical-align:middle;padding:1px 8px;border-radius:9px;font-size:10px;font-weight:600;color:' + cc[0] + ';background:' + cc[1] + '">' + e(PAY_ST[v.st]) + '</span>'; }
+      if(v.st){ const cc = PAY_REP_CLR[v.st] || INS_REP_CLR[v.st]; return '<span style="display:inline-block;line-height:16px;vertical-align:middle;padding:1px 8px;border-radius:9px;font-size:10px;font-weight:600;color:' + cc[0] + ';background:' + cc[1] + '">' + e(v.t || PAY_ST[v.st]) + '</span>'; }
       return e(v);
     };
     const tr = (r, i) => {
