@@ -1206,7 +1206,8 @@
   var FTAB = 'พรบ.';
 
   function noFileRows(type){
-    return ALL_ROWS.filter(r => r.type === type && !r.file_url)
+    // รถขายแล้วไม่ต้องแนบไฟล์ (ผู้ใช้สั่ง 2026-11-26)
+    return ALL_ROWS.filter(r => r.type === type && !r.file_url && r.retired !== 'ขายแล้ว')
                    .sort((a, b) => String(a.end_date).localeCompare(String(b.end_date)));
   }
 
@@ -2300,7 +2301,7 @@
     ['สถานะ',         p => stTx(p)],
     ['เล่มใหม่',      p => p.renewed_policy_no],
     ['คุ้มครองใหม่ถึง', p => p.renewed_end_date],
-    ['ไฟล์แนบ',       p => p.file_url ? 'แนบแล้ว' : 'ยังไม่แนบ']
+    ['ไฟล์แนบ',       p => p.file_url ? 'แนบแล้ว' : (p.retired === 'ขายแล้ว' ? 'ไม่ต้องแนบ (ขายแล้ว)' : 'ยังไม่แนบ')]
   ];
   const REP_PRINT = [
     ['ลำดับ',        (p, i) => i + 1, 'num'],
@@ -2400,8 +2401,8 @@
   const INS_ST_TX = { pend:'ยังไม่ต่อ', ren:'ต่อแล้ว', off:'ปิดเตือน' };
   const IR_TYPES = [['สมัครใจ', 'ประกันภัย'], ['พรบ.', 'พ.ร.บ.']];
   // ไฟล์แนบ (ผู้ใช้ขอ 2026-11-26) — นับจาก file_url ตัวเดียวกับแถบ "กรมธรรม์ที่ยังไม่มีไฟล์แนบ"
-  const IR_FILE_TX = { has:'แนบแล้ว', no:'ยังไม่แนบ' }, IR_FILE_CLR = { has:'#2979FF', no:'#a32d2d' };
-  const irFile = p => p.file_url ? 'has' : 'no';
+  const IR_FILE_TX = { has:'แนบแล้ว', no:'ยังไม่แนบ', na:'ไม่ต้องแนบ' }, IR_FILE_CLR = { has:'#2979FF', no:'#a32d2d', na:'#5f5e5a' };
+  const irFile = p => p.file_url ? 'has' : (p.retired === 'ขายแล้ว' ? 'na' : 'no');   // รถขายแล้วไม่ต้องแนบไฟล์
   const IR_KINDS = [
     ['list', 'รายการรายคัน', 'ตารางเดียว เรียงตามบริษัท / วันหมดอายุ', '#6200ea'],
     ['byco', 'รายคัน แยกบริษัท', 'ขึ้นหน้าใหม่ทุกบริษัท มียอดรวมย่อย · Excel แยกชีตละบริษัท', '#0f766e'],
@@ -2445,7 +2446,7 @@
       html:'<div id="rpBox" style="text-align:left"></div>', didOpen:irDraw, didClose:() => setTimeout(unstick, 60) });
   }
   function irTog(f, i){
-    const all = { years:IR_OPT.years, months:[1,2,3,4,5,6,7,8,9,10,11,12], cos:IR_OPT.cos, types:IR_TYPES.map(t => t[0]), sts:['pend', 'ren', 'off'], files:['has', 'no'] }[f];
+    const all = { years:IR_OPT.years, months:[1,2,3,4,5,6,7,8,9,10,11,12], cos:IR_OPT.cos, types:IR_TYPES.map(t => t[0]), sts:['pend', 'ren', 'off'], files:['has', 'no', 'na'] }[f];
     const v = all[i], s = IR[f];
     if(s.has(v)) s.delete(v); else s.add(v);
     if(s.size === all.length) s.clear();   // เลือกครบทุกตัว = ทั้งหมด
@@ -2460,7 +2461,7 @@
     const row = (lab, inner) => '<div class="rp-row"><span class="rp-lab">' + lab + '</span><div class="rp-chips">' + inner + '</div></div>';
     const mHas = new Set(irRows(R, 'months').map(p => +String(p.end_date || '').slice(5, 7)));
     const stN = { pend:0, ren:0, off:0 }; irRows(R, 'sts').forEach(p => stN[irSt(p)]++);
-    const fN = { has:0, no:0 }; irRows(R, 'files').forEach(p => fN[irFile(p)]++);
+    const fN = { has:0, no:0, na:0 }; irRows(R, 'files').forEach(p => fN[irFile(p)]++);
     const screen = irIsScreen(R), vf = repFilterNow();
     box.innerHTML =
       '<div class="rp-top"><span class="rp-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3d0099" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.4 9.2-8 11-4.6-1.8-8-6-8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></span>'
@@ -2476,7 +2477,7 @@
       + row('สถานะ', chip(!R.sts.size, 'ทั้งหมด', "irAll('sts')")
         + ['pend', 'ren', 'off'].map((s, i) => chip(R.sts.has(s), INS_ST_TX[s] + ' <em>' + stN[s] + '</em>', "irTog('sts'," + i + ")", false, INS_REP_CLR[s][0])).join(''))
       + row('ไฟล์แนบ', chip(!R.files.size, 'ทั้งหมด', "irAll('files')")
-        + ['has', 'no'].map((s, i) => chip(R.files.has(s), IR_FILE_TX[s] + ' <em>' + fN[s] + '</em>', "irTog('files'," + i + ")", false, IR_FILE_CLR[s])).join(''))
+        + ['has', 'no', 'na'].map((s, i) => chip(R.files.has(s), IR_FILE_TX[s] + ' <em>' + fN[s] + '</em>', "irTog('files'," + i + ")", false, IR_FILE_CLR[s])).join(''))
       + (Q ? row('คำค้นบนจอ', chip(R.q, 'ใช้ "' + e(Q.slice(0, 30)) + '"', 'IR.q=!IR.q;irDraw()')) : '')
       + (!Q && vf.label ? row('ตัวกรองบนจอ', chip(R.v, e(vf.label), 'IR.v=!IR.v;irDraw()')) : '')
       + '<div class="rp-g">2 · เลือกรายงาน</div>'
