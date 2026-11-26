@@ -152,6 +152,13 @@
     .gcard.type-c .gtop b{ color:#0E6A86; }
     .bar button.on[data-t="สมัครใจ"]{ color:#5B21B6; }
     .bar button.on[data-t="พรบ."]{ color:#0E6A86; }
+    /* ชิป ขายแล้ว / ม.79 (2026-11-26) — ดูรถที่ปิดเตือนไว้ · ตัวเลข = จำนวนคัน */
+    .bar button.on[data-t^="@"]{ color:#5f5e5a; }
+    .bar button .bn{ font-style:normal; font-size:11px; font-weight:600; margin-left:5px; padding:1px 6px; border-radius:9px; background:rgba(255,255,255,.25); }
+    .bar button .bn:empty{ display:none; }
+    .bar button.on .bn{ background:#efefef; }
+    .bar button{ white-space:nowrap; min-width:0; }
+    @media (max-width:480px){ .bar{ gap:2px; } .bar button{ padding-left:1px; padding-right:1px; font-size:11.5px; gap:0; } .bar button .bn{ margin-left:3px; padding:1px 4px; font-size:10px; } }
 
     /* แถบเตือนรถที่ขาดกรมธรรม์ */
     .gap-bar{ display:none; align-items:center; gap:11px; background:#fff; border-radius:16px; padding:13px 15px;
@@ -565,6 +572,8 @@
       <button class="on" data-t="" onclick="setType('',this)">ทั้งหมด</button>
       <button data-t="สมัครใจ" onclick="setType('สมัครใจ',this)">ประกันภัย</button>
       <button data-t="พรบ." onclick="setType('พรบ.',this)">พรบ.</button>
+      <button data-t="@ขายแล้ว" onclick="setRet('ขายแล้ว',this)">ขายแล้ว<i class="bn" id="nRetSold"></i></button>
+      <button data-t="@ทำ ม.79" onclick="setRet('ทำ ม.79',this)">ม.79<i class="bn" id="nRetM79"></i></button>
     </div>
 
     <div class="tools">
@@ -709,6 +718,7 @@
 
   let GROUPS = [], TYPE = '', TOTAL = 0, CFG = null, ROUND = null, ROUND_ST = null, IS_DEV = false, UID = '', VIEW = 'all', DEEP_DONE = false;
   let ROLE = '', PAY = null, PAY_MAP = {}, PAY_AUTO = false, PAY_REOPEN = false, PAY_SEL = new Set();   // ทะเบียนการชำระเบี้ย · ROLE 'acct' = ฝ่ายบัญชีดูอย่างเดียว
+  let RET = '';   // '' | 'ขายแล้ว' | 'ทำ ม.79' — ชิปรถปิดเตือน
   let ALL_ROWS = [], Q = '', MISSING = null, MTAB = 'c';   // c = ขาด พรบ. · v = ขาดประกันภัย                 // รายการกรมธรรม์ทั้งหมด ไว้ค้นหาฝั่งหน้าเว็บ (ไม่ต้องยิง API ทุกตัวอักษร)
 
   /** ประเภท -> รหัสสี: v = ประกันภัย (ม่วง) · c = พรบ. (ฟ้า) */
@@ -992,6 +1002,8 @@
       kpi(baht(premium), 'เบี้ยรวม (บาท)', 'var(--ok)', 'report', 'กดเพื่อออกรายงาน');
 
     const box = document.getElementById('groups');
+    retCount();
+    if(RET){ renderRet(box); return; }
 
     // มีคำค้น -> โชว์ผลรายคัน แทนการ์ดกลุ่ม
     if(Q){
@@ -1485,11 +1497,42 @@
   }
 
   function setType(t, el){
-    TYPE = t;
+    TYPE = t; RET = '';
     VIEW = 'all';
     document.querySelectorAll('#typeBar button').forEach(b=>b.classList.remove('on'));
     el.classList.add('on');
     render();
+  }
+
+  /** ชิป ขายแล้ว / ม.79 → รายการรถที่ปิดเตือนเพราะเหตุนั้น (ทุกประเภทกรมธรรม์) */
+  function setRet(r, el){
+    TYPE = ''; RET = r; VIEW = 'all';
+    document.querySelectorAll('#typeBar button').forEach(b=>b.classList.remove('on'));
+    el.classList.add('on');
+    render();
+  }
+  const carKey = p => String(p.chassis || '').trim().toUpperCase() || ('P:' + String(p.plate || '').replace(/\s+/g, ''));
+  function retCount(){
+    const n = r => new Set(ALL_ROWS.filter(p => p.retired === r).map(carKey)).size;
+    const a = document.getElementById('nRetSold'), b = document.getElementById('nRetM79');
+    if(a) a.textContent = n('ขายแล้ว') || '';
+    if(b) b.textContent = n('ทำ ม.79') || '';
+  }
+  function renderRet(box){
+    const hit = ALL_ROWS.filter(p => p.retired === RET && (!Q || matches(p, Q.toLowerCase())));
+    const cars = {};
+    hit.forEach(p => { const k = carKey(p); (cars[k] = cars[k] || []).push(p); });
+    const list = Object.values(cars).sort((a, b) => String(a[0].plate || '').localeCompare(String(b[0].plate || ''), 'th'));
+    const lbl = RET === 'ทำ ม.79' ? 'ทำ ม.79' : 'ขายแล้ว';
+    box.innerHTML = '<div class="gcard" style="cursor:default;border-left-color:#9E9E9E">'
+      + '<div class="gtop"><div class="gt"><b>รถ' + esc(lbl) + (Q ? ' · ค้นหา “' + esc(Q) + '”' : '') + '</b>'
+      + '<small>' + list.length + ' คัน · ' + hit.length + ' กรมธรรม์ · ปิดเตือนต่ออายุทั้งหมด'
+      + (IS_DEV ? ' · เปิดเตือนอีกครั้งได้ที่ปุ่ม "เปลี่ยนสถานะรถ"' : '') + '</small></div>'
+      + '<div class="gcnt"><u>' + list.length + '</u><i>คัน</i></div></div>'
+      + (hit.length ? '<div style="margin-top:6px">' + list.map(c => c.map(rowHtml).join('')).join('') + '</div>'
+                    : '<div style="padding:22px 0;text-align:center;color:#999;font-size:13px;font-weight:300">'
+                      + (Q ? 'ไม่พบรายการที่ตรงกับคำค้น' : 'ยังไม่มีรถ' + esc(lbl)) + '</div>')
+      + '</div>';
   }
 
   // ---------- ส่งออกรายชื่อของกลุ่มที่เปิดอยู่ (Excel / PDF / JPEG ขนาด A4) ----------
@@ -3632,6 +3675,55 @@
     ['no_vol_note', 'เหตุผลที่ไม่ทำ', 24, 0, 'ไม่บังคับ'],
     ['note', 'หมายเหตุ', 24, 0, '']];
 
+  /* 🔽 dropdown ในไฟล์ (ผู้ใช้สั่ง 2026-11-26 "ช่องไหนที่มีให้เลือก ให้ทำดรอปดาวให้ผู้ใช้งานเลย") · skill webapp-excel-roundtrip ข้อ 11
+     list = ค่าตายตัว (ใส่ค่าอื่นไม่ได้) · from = รายการจากข้อมูลในระบบ อยู่ในชีตซ่อน "รายการ" (พิมพ์ค่าใหม่ได้ Excel ถามยืนยันก่อน)
+     ค่าใน list ต้องตรงกับที่ edge doc-api อ่านได้ (xlType / xlCar / xlYes) */
+  const XL_DV = {
+    type:        { list:['ประกันภัย', 'พ.ร.บ.'] },
+    insured:     { from:p => p.insured },
+    province:    { from:p => p.province },
+    brand:       { from:p => p.brand },
+    body_type:   { from:p => p.body_type },
+    year:        { whole:[1950, 2100], txt:'ปี ค.ศ. 1950–2100' },
+    premium_total:{ dec:[0, 99999999], txt:'ตัวเลข 0 ขึ้นไป' },
+    car_status:  { list:['ใช้งาน', 'ขายแล้ว', 'ทำ ม.79'] },
+    no_vol:      { list:['ใช่', 'ไม่ใช่'] } };
+  let JSZIP_P = null;
+  function jszipLib(){
+    if(window.JSZip) return Promise.resolve(window.JSZip);
+    return JSZIP_P || (JSZIP_P = new Promise((ok, no) => { const sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      sc.onload = () => ok(window.JSZip); sc.onerror = () => { JSZIP_P = null; sc.remove(); no(new Error('โหลด JSZip ไม่ได้')); };
+      document.head.appendChild(sc); }));
+  }
+  /** แทรก <dataValidations> ลง sheet1.xml (SheetJS เขียนเองไม่ได้) · พัง = คืนไฟล์เดิม (ไม่มี dropdown แต่ยังดาวน์โหลดได้) */
+  async function insXlDropdowns(buf, rules, toRow){
+    if(!rules.length) return buf;
+    try {
+      const JSZip = await jszipLib(), zip = await JSZip.loadAsync(buf), path = 'xl/worksheets/sheet1.xml', f = zip.file(path);
+      if(!f) return buf;
+      let xml = await f.async('string');
+      const L = i => { let s = ''; i++; while(i){ const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = (i - m - 1) / 26; } return s; };
+      const xe = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const cut = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
+      const dv = rules.map(r => {
+        const ref = L(r.col) + '3:' + L(r.col) + toRow;
+        const at = ' allowBlank="1" showInputMessage="1" showErrorMessage="1" errorStyle="' + (r.warn ? 'warning' : 'stop') + '"'
+          + ' errorTitle="' + xe(cut(r.warn ? 'ไม่อยู่ในรายการ' : 'ค่าไม่ถูกต้อง', 32)) + '" error="' + xe(cut(r.err, 220)) + '"'
+          + ' promptTitle="' + xe(cut(r.title, 32)) + '" prompt="' + xe(cut(r.prompt, 250)) + '" sqref="' + ref + '"';
+        if(r.formula) return '<dataValidation type="list"' + at + '><formula1>' + xe(r.formula) + '</formula1></dataValidation>';
+        return '<dataValidation type="' + r.num + '" operator="between"' + at + '><formula1>' + r.min + '</formula1><formula2>' + r.max + '</formula2></dataValidation>';
+      }).join('');
+      // ต้องอยู่ก่อนแท็กพวกนี้ตามลำดับ schema (SheetJS ใส่ <ignoredErrors> ท้ายชีต — วางหลังมัน Excel เปิดไฟล์ไม่ได้)
+      const pos = ['<hyperlinks', '<printOptions', '<pageMargins', '<pageSetup', '<headerFooter', '<rowBreaks', '<colBreaks', '<customProperties', '<cellWatches',
+        '<ignoredErrors', '<smartTags', '<drawing', '<legacyDrawing', '<picture', '<oleObjects', '<controls', '<webPublishItems', '<tableParts', '<extLst', '</worksheet>']
+        .map(t => xml.indexOf(t)).filter(i => i >= 0).sort((a, b) => a - b)[0];
+      xml = xml.slice(0, pos) + '<dataValidations count="' + rules.length + '">' + dv + '</dataValidations>' + xml.slice(pos);
+      zip.file(path, xml);
+      return await zip.generateAsync({ type:'arraybuffer', compression:'DEFLATE' });
+    } catch(e){ console.warn('insXlDropdowns', e); return buf; }
+  }
+
   async function insXl(){
     const n = ALL_ROWS.length;
     const ico = (bg, path) => '<span class="ic" style="background:' + bg + '"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + path + '</svg></span>';
@@ -3683,15 +3775,42 @@
       ['3) เพิ่มกรมธรรม์ใหม่: เพิ่มแถวท้ายตาราง เว้น id ว่าง ใส่ ประเภท + เลขกรมธรรม์ + คุ้มครองถึง + ทะเบียน/เลขตัวถัง'],
       ['4) ลบแถวออกจากไฟล์ ≠ ลบออกจากระบบ (รถที่เลิกใช้ ให้แก้ "สถานะรถ" เป็น ขายแล้ว / ทำ ม.79)'],
       ['5) รถที่บริษัทตั้งใจไม่ทำประกันภัย: ใส่ "ใช่" ในคอลัมน์ ไม่ทำประกันภัย ที่แถวไหนของรถคันนั้นก็ได้ (มีผลทั้งคัน)'],
-      ['6) อัปโหลดกลับที่ปุ่ม "อัปโหลด / ดาวน์โหลด" → อัปโหลด → ตรวจสรุป → ยืนยันด้วยรหัส 6 หลัก'], [''],
-      ['ค่าที่ใช้ได้ในแต่ละคอลัมน์']].concat(XL_COLS.filter(c => c[4]).map(c => [c[1] + ' — ' + c[4]]));
+      ['6) อัปโหลดกลับที่ปุ่ม "อัปโหลด / ดาวน์โหลด" → อัปโหลด → ตรวจสรุป → ยืนยันด้วยรหัส 6 หลัก'],
+      ['7) ช่องที่มีลูกศร ▾ = เลือกจากรายการ · ประเภท / สถานะรถ / ไม่ทำประกันภัย ใส่ค่าอื่นไม่ได้ · บริษัท / จังหวัด / ยี่ห้อ / ประเภทตัวถัง เลือกจากที่มีในระบบ หรือพิมพ์ค่าใหม่ได้ (Excel ถามยืนยันก่อน)'], [''],
+      ['ค่าที่ใช้ได้ในแต่ละคอลัมน์']].concat(XL_COLS.filter(c => c[4] || XL_DV[c[0]]).map(c => [c[1] + ' — ' + (c[4] || 'เลือกจากรายการที่มีในระบบ หรือพิมพ์ใหม่')]));
     const wh = X.utils.aoa_to_sheet(help.map(r => r.map(v => ({ v:v, t:'s', s:r === help[0] ? { font:{ bold:true, sz:14, color:{ rgb:'1F2A44' } } } : {} }))));
     wh['!cols'] = [{ wch:110 }];
     const wb = X.utils.book_new();
     X.utils.book_append_sheet(wb, ws, 'ทะเบียนกรมธรรม์');
     X.utils.book_append_sheet(wb, wh, 'วิธีใช้');
+    // ชีตซ่อน "รายการ" = ค่าที่มีในระบบของคอลัมน์ from (ยาวเกิน 255 ตัวอักษร ใส่ในสูตรตรงๆ ไม่ได้)
+    const lists = [], rules = [];
+    XL_COLS.forEach((c, i) => {
+      const r = XL_DV[c[0]]; if(!r || c[3]) return;
+      const base = { col:i, title:c[1] };
+      if(r.list) rules.push(Object.assign(base, { formula:'"' + r.list.join(',') + '"', prompt:'เลือก: ' + r.list.join(' / '), err:'เลือกจากรายการ: ' + r.list.join(' / ') }));
+      else if(r.from){
+        const vals = Array.from(new Set(ALL_ROWS.map(r.from).map(v => String(v == null ? '' : v).trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'th'));
+        if(!vals.length) return;
+        const L = X.utils.encode_col(lists.length);
+        lists.push([c[1]].concat(vals));
+        rules.push(Object.assign(base, { warn:1, formula:"'รายการ'!$" + L + '$2:$' + L + '$' + (vals.length + 1),
+          prompt:'เลือกจากที่มีในระบบ (' + vals.length + ' ค่า) หรือพิมพ์ค่าใหม่', err:'ค่านี้ยังไม่มีในระบบ — ใช้ค่าใหม่นี้ต่อไหม' }));
+      } else {
+        const num = r.whole ? 'whole' : 'decimal', mm = r.whole || r.dec;
+        rules.push(Object.assign(base, { num, min:mm[0], max:mm[1], prompt:r.txt, err:'ใส่' + r.txt }));
+      }
+    });
+    if(lists.length){
+      const h = Math.max.apply(null, lists.map(a => a.length));
+      const wl = X.utils.aoa_to_sheet(Array.from({ length:h }, (_, ri) => lists.map(a => ({ v:a[ri] == null ? '' : a[ri], t:'s' }))));
+      wl['!cols'] = lists.map(() => ({ wch:30 }));
+      X.utils.book_append_sheet(wb, wl, 'รายการ');
+      wb.Workbook = { Sheets:[{}, {}, { Hidden:1 }] };
+    }
     const d = new Date(), stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
-    const blob = new Blob([X.write(wb, { bookType:'xlsx', type:'array' })], { type:'application/octet-stream' });
+    const buf = await insXlDropdowns(X.write(wb, { bookType:'xlsx', type:'array' }), rules, rows.length + 2 + 300);
+    const blob = new Blob([buf], { type:'application/octet-stream' });
     const el = document.createElement('a'); el.href = URL.createObjectURL(blob); el.download = 'ทะเบียนกรมธรรม์_' + stamp + '.xlsx';
     document.body.appendChild(el); el.click(); document.body.removeChild(el); setTimeout(() => URL.revokeObjectURL(el.href), 1500);
     toast('ดาวน์โหลด ' + rows.length + ' กรมธรรม์');
